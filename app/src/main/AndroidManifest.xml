@@ -14,9 +14,9 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@android:drawable/ic_menu_info_details"
+        android:icon="@drawable/stark_logo"
         android:label="WingPay OMEGA v8.0 STARK"
-        android:roundIcon="@android:drawable/ic_menu_info_details"
+        android:roundIcon="@drawable/stark_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
