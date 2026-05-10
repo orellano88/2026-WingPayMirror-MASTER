@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             background = starkBackground
         }
 
-        // --- CABECERA PARALLAX v43.0 ---
+        // --- CABECERA PARALLAX v44.0 ---
         header = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 250)
         }
@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v43.0 NEURAL PARALLAX"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v44.0 OMNI-LINK EDITION"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -101,27 +101,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         ledContainer.addView(statusLED); ledContainer.addView(syncLED)
         header.addView(ledContainer)
 
-        // --- NEURAL HEARTBEAT ANIMATION ---
-        ObjectAnimator.ofFloat(statusLED, "alpha", 0.3f, 1.0f).apply {
-            duration = 1500; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.REVERSE; start()
-        }
-
-        // --- TERMINAL ---
+        // --- TERMINAL NEURAL ---
         val termContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 550).apply { setMargins(0, 30, 0, 30) }
             background = getGlassDrawable(0x66000000.toInt()); setPadding(25, 25, 25, 25)
         }
 
         terminalView = TextView(this).apply {
-            text = "[SISTEMA]: Enlace Neural v43.0 Establecido\n[SISTEMA]: Sensores Parallax Activos."; textSize = 11f
+            text = "[OMNI-LINK]: Protocolos Nivel 5 Activos\n[OMNI-LINK]: Cola de voz inicializada."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
 
         // --- BOTONES ---
-        val btnLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; weightSum = 3f
-        }
+        val btnLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; weightSum = 3f }
         btnLayout.addView(createGlassButton("⚙", 1f) { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
         btnLayout.addView(createGlassButton("🧪 TEST", 1f) { starkTotalTest() })
         btnLayout.addView(createGlassButton("🚨 SOS", 1f) { enviarAlertaSOS() })
@@ -158,9 +151,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         setColor(color); cornerRadius = 30f; setStroke(2, 0x44FFFFFF.toInt())
     }
 
-    private fun getCircleDrawable(color: Int) = GradientDrawable().apply {
-        shape = GradientDrawable.OVAL; setColor(color)
-    }
+    private fun getCircleDrawable(color: Int) = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
 
     private fun log(msg: String) {
         val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
@@ -171,23 +162,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_TOTAL_NEURAL")
-        // Enviar vía BROADCAST NEURAL (Evita bloqueos de EMUI)
-        val intent = Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
-            putExtra("VOICE_CMD", "Prueba exitosa. Hoy tendrás una buena venta que supera los 10 mil soles. ¡A por ello, jefe!")
-        }
-        sendBroadcast(intent)
+        log("INICIANDO_OMNI_TEST_v44")
+        // Enviar vía BROADCAST NEURAL v44
+        sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
+            putExtra("VOICE_CMD", "Omni Link exitoso. Hoy tendrás una gran venta superior a los 10 mil soles. ¡A por ello!")
+        })
         
         mainScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
-                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "10,000"); put("stark_log", "v43_NEURAL_OK") }
+                    setRequestProperty("Title", "TEST OMNI-LINK v44")
+                    setRequestProperty("Priority", "4")
+                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "10k"); put("stark_log", "v44_OMNI_OK") }
                     OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                     if (responseCode == 200) withContext(Dispatchers.Main) {
                         syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                        log("SYNC_PC: ÉXITO"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                        log("OMNI_SYNC_PC: ÉXITO"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
                     }
                     disconnect()
                 }
@@ -196,7 +188,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun enviarAlertaSOS() {
-        log("CMD: SOS_NEURAL")
+        log("SOS: Activando Sirena Prioridad 5 en PC...")
         sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply { putExtra("SOS_CMD", true) })
     }
 
@@ -204,7 +196,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         mainScope.launch {
             while (isActive) {
                 statusLED.background = if (isNotificationServiceEnabled()) getCircleDrawable(Color.GREEN) else getCircleDrawable(Color.RED)
-                delay(5000)
+                // Efecto latido
+                statusLED.alpha = 0.5f; delay(200); statusLED.alpha = 1.0f; delay(4800)
             }
         }
     }
@@ -216,16 +209,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun checkInitialSystems() {
         if (!isNotificationServiceEnabled()) {
-            AlertDialog.Builder(this).setTitle("ENLACE NEURAL").setMessage("Señor, JARVIS requiere el puente de notificaciones.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
+            AlertDialog.Builder(this).setTitle("OMNI-LINK").setMessage("Señor, JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
         }
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_GRAVITY) {
             val x = event.values[0]; val y = event.values[1]
-            // EFECTO HOLOGRÁFICO PARALLAX
             header.translationX = -x * 3; header.translationY = y * 3
             logoIcon.rotationY = x * 5; logoIcon.rotationX = -y * 5
+            
+            // NOVEDAD v44: El color del logo reacciona sutilmente al movimiento
+            val colorFilter = LightingColorFilter(0xFFFFFF, (Math.abs(x) * 20).toInt() shl 16)
+            logoIcon.colorFilter = colorFilter
         }
     }
     override fun onAccuracyChanged(s: Sensor?, a: Int) {}
