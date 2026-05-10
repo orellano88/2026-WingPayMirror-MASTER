@@ -37,7 +37,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     private val internalReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             intent?.getStringExtra("VOICE_CMD")?.let { awakeAndSpeak(it) }
-            if (intent?.getBooleanExtra("SOS_CMD", false) == true) { enviarSOSaPC() }
+            if (intent?.getBooleanExtra("SOS_CMD_LOCAL", false) == true) { enviarSOSaPC() }
         }
     }
 
@@ -46,7 +46,9 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WingPay:WakeLock")
         if (!wakeLock.isHeld) { wakeLock.acquire() }
+        
         try { toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100) } catch (e: Exception) {}
+
         registerReceiver(internalReceiver, IntentFilter("com.inversioneswing.STARK_INTERNAL_CMD"))
         tts = TextToSpeech(this, this)
         reloadTopic()
@@ -70,16 +72,27 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                         lines.forEach { line ->
                             val json = JSONObject(line)
                             if (json.has("message")) {
-                                val msg = json.getString("message")
-                                if (msg.contains("PC_SOS")) {
-                                    dispararAlarmaLocal("¡Atención! Alerta de pánico recibida desde la estación de mando.")
-                                } else if (msg.contains("PC_CMD:")) {
-                                    awakeAndSpeak(msg.replace("PC_CMD:", "").trim())
+                                val msgRaw = json.getString("message")
+                                try {
+                                    val data = JSONObject(msgRaw)
+                                    // --- PROTECCIÓN DE BUCLE STARK ---
+                                    // Solo procesamos si el emisor es la PC
+                                    if (data.optString("sender") == "PC") {
+                                        val msg = data.optString("message", "")
+                                        if (msg.contains("STARK_PC_SOS")) {
+                                            dispararAlarmaLocal("¡ALERTA! Señal de emergencia recibida desde la estación de mando.")
+                                        } else if (msg.contains("PC_CMD:")) {
+                                            awakeAndSpeak(msg.replace("PC_CMD:", "").trim())
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    // Si no es JSON, verificar texto plano (retrocompatibilidad)
+                                    if (msgRaw.contains("PC_SOS")) dispararAlarmaLocal("Alerta de pánico remota.")
                                 }
                             }
                         }
                     }
-                } catch (e: Exception) { delay(15000) }
+                } catch (e: Exception) { delay(10000) }
             }
         }
     }
@@ -102,6 +115,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         intent?.getStringExtra("UPDATE_CODE")?.let { reloadTopic() }
         intent?.getStringExtra("TEST_VOICE")?.let { awakeAndSpeak(it) }
         intent?.getBooleanExtra("TRIGGER_SOS", false)?.let { if(it) enviarSOSaPC() }
+        
         createNotificationChannel()
         val notification = createPersistentNotification()
         startForeground(101, notification)
@@ -116,8 +130,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing v52.2")
-        .setContentText("Enlace Dual Sync Activo")
+        .setContentTitle("Importaciones Wing v53.1")
+        .setContentText("Enlace Bidireccional Activo")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setOngoing(true).build()
@@ -127,8 +141,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         val extras = sbn.notification.extras
         val title = extras.getCharSequence("android.title")?.toString() ?: ""
         val text = extras.getCharSequence("android.text")?.toString() ?: ""
-        val bigText = extras.getCharSequence("android.bigText")?.toString() ?: ""
-        val fullContent = "$title | $text | $bigText".trim()
+        val fullContent = "$title | $text".trim()
         if (pkg.contains("bcp") || pkg.contains("yape") || pkg.contains("plin") || pkg.contains("interbank")) {
             processSmartContent(fullContent, pkg)
         }
@@ -145,10 +158,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
             val nombreLimpio = nombreRaw.lowercase().capitalize()
             val banco = if (pkg.contains("yape")) "YAPE" else "BCP"
             awakeAndSpeak("Aviso de Pago. $banco. $nombreLimpio te envió $montoRaw soles.")
-            serviceScope.launch(Dispatchers.IO) {
-                sendToMirror(banco, nombreLimpio, montoRaw)
-                sendToTelegram("💰 *PAGO RECIBIDO:* $banco | $nombreLimpio | S/ $montoRaw")
-            }
+            serviceScope.launch(Dispatchers.IO) { sendToMirror(banco, nombreLimpio, montoRaw) }
             return true
         }
         return false
@@ -156,12 +166,16 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
     private fun sendToMirror(banco: String, nombre: String, monto: String) {
         try {
-            val topic = "wingpay_stark_8502345704"
             val url = URL("https://ntfy.sh/$currentTopic")
             (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"; doOutput = true
-                setRequestProperty("Title", "PAGO $banco")
-                val json = JSONObject().apply { put("bank", banco); put("name", nombre); put("amt", monto) }
+                val json = JSONObject().apply { 
+                    put("sender", "PHONE")
+                    put("bank", banco)
+                    put("name", nombre)
+                    put("amt", monto)
+                    put("stark_log", "PROCESADO_OK")
+                }
                 OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                 responseCode; disconnect()
             }
@@ -175,7 +189,11 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
                     setRequestProperty("Title", "ALERTA_SOS")
-                    val json = JSONObject().apply { put("type", "SOS"); put("stark_log", "SIRENA_5S") }
+                    val json = JSONObject().apply { 
+                        put("sender", "PHONE")
+                        put("type", "SOS")
+                        put("stark_log", "SIRENA_5S") 
+                    }
                     OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                     responseCode; disconnect()
                 }
@@ -198,19 +216,6 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                 while (iterator.hasNext()) { speak(iterator.next()); iterator.remove() }
             }
         }
-    }
-
-    private fun sendToTelegram(message: String) {
-        val token = "8629465941:AAH-5rwmNDTP_91UKZIRrJO_oZ24p1IcIQE"
-        val chatId = "8502345704"
-        try {
-            val url = URL("https://api.telegram.org/bot$token/sendMessage")
-            (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"; doOutput = true; setRequestProperty("Content-Type", "application/json")
-                OutputStreamWriter(outputStream).use { it.write(JSONObject().apply { put("chat_id", chatId); put("text", message); put("parse_mode", "Markdown") }.toString()) }
-                responseCode; disconnect()
-            }
-        } catch (e: Exception) {}
     }
 
     override fun onDestroy() {
