@@ -4,14 +4,15 @@ import android.app.*
 import android.content.*
 import android.content.pm.ServiceInfo
 import android.graphics.Color
+import android.media.AudioManager
+import android.media.RingtoneManager
+import android.media.ToneGenerator
 import android.os.*
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.speech.tts.TextToSpeech
 import android.util.Log
-import android.media.AudioManager
-import android.media.ToneGenerator
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import org.json.JSONObject
@@ -20,7 +21,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.*
 import java.util.regex.Pattern
-import java.util.concurrent.Executors
 
 class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitListener {
 
@@ -34,22 +34,27 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     private var toneGenerator: ToneGenerator? = null
     private var currentTopic: String = "wingpay_stark_8502345704"
 
-    private val internalReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            intent?.getStringExtra("VOICE_CMD")?.let { awakeAndSpeak(it) }
-            if (intent?.getBooleanExtra("SOS_CMD_LOCAL", false) == true) { enviarSOSaPC() }
+    // --- COMPANION OBJECT: EL PUENTE DE MEMORIA DIRECTA v56.0 ---
+    companion object {
+        private var activeInstance: StarkCaptureService? = null
+        
+        fun sendAudioCommand(text: String) {
+            activeInstance?.awakeAndSpeak(text)
+        }
+        
+        fun triggerRemoteSOS() {
+            activeInstance?.enviarSOSaPC()
         }
     }
 
     override fun onCreate() {
         super.onCreate()
+        activeInstance = this
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WingPay:WakeLock")
         if (!wakeLock.isHeld) { wakeLock.acquire() }
         
-        try { toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100) } catch (e: Exception) {}
-
-        registerReceiver(internalReceiver, IntentFilter("com.inversioneswing.STARK_INTERNAL_CMD"))
+        try { toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100) } catch (e: Exception) {}
         tts = TextToSpeech(this, this)
         reloadTopic()
     }
@@ -75,18 +80,16 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                                 val msgRaw = json.getString("message")
                                 try {
                                     val data = JSONObject(msgRaw)
-                                    // --- PROTECCIÓN DE BUCLE STARK ---
-                                    // Solo procesamos si el emisor es la PC
+                                    // SOLO REACCIONAR SI EL SENDER ES PC (PROTECCIÓN DE BUCLE)
                                     if (data.optString("sender") == "PC") {
-                                        val msg = data.optString("message", "")
-                                        if (msg.contains("STARK_PC_SOS")) {
-                                            dispararAlarmaLocal("¡ALERTA! Señal de emergencia recibida desde la estación de mando.")
-                                        } else if (msg.contains("PC_CMD:")) {
-                                            awakeAndSpeak(msg.replace("PC_CMD:", "").trim())
+                                        val content = data.optString("message", "")
+                                        if (content.contains("STARK_PC_SOS")) {
+                                            dispararAlarmaLocal("¡ALERTA! Señal de emergencia recibida desde la PC.")
+                                        } else {
+                                            awakeAndSpeak(content)
                                         }
                                     }
                                 } catch (e: Exception) {
-                                    // Si no es JSON, verificar texto plano (retrocompatibilidad)
                                     if (msgRaw.contains("PC_SOS")) dispararAlarmaLocal("Alerta de pánico remota.")
                                 }
                             }
@@ -102,19 +105,41 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
         } else { vibrator.vibrate(1000) }
+        
+        // RESPALDO ACÚSTICO: Tono de sistema
+        try {
+            val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            val r = RingtoneManager.getRingtone(applicationContext, notification)
+            r.play()
+            Handler(Looper.getMainLooper()).postDelayed({ r.stop() }, 3000)
+        } catch (e: Exception) {}
+        
         awakeAndSpeak(text)
     }
 
-    private fun awakeAndSpeak(text: String) {
+    fun awakeAndSpeak(text: String) {
         if (!wakeLock.isHeld) { wakeLock.acquire(15 * 1000L) }
+        
+        // 1. BUZZER HARDWARE (CONFIRMACIÓN INICIAL)
         try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 250) } catch (e: Exception) {}
-        if (isTtsReady) speak(text) else pendingMessages.add(text)
+        
+        // 2. HABLAR (SI ESTÁ LISTO)
+        if (isTtsReady) {
+            speak(text)
+        } else {
+            pendingMessages.add(text)
+        }
+    }
+
+    private fun speak(text: String) {
+        val params = Bundle()
+        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM)
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, "STARK_" + System.currentTimeMillis())
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.getStringExtra("UPDATE_CODE")?.let { reloadTopic() }
         intent?.getStringExtra("TEST_VOICE")?.let { awakeAndSpeak(it) }
-        intent?.getBooleanExtra("TRIGGER_SOS", false)?.let { if(it) enviarSOSaPC() }
         
         createNotificationChannel()
         val notification = createPersistentNotification()
@@ -130,8 +155,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing v53.1")
-        .setContentText("Enlace Bidireccional Activo")
+        .setContentTitle("Importaciones Wing v56.0")
+        .setContentText("Neural Synergy Sync Activo")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setOngoing(true).build()
@@ -141,8 +166,10 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         val extras = sbn.notification.extras
         val title = extras.getCharSequence("android.title")?.toString() ?: ""
         val text = extras.getCharSequence("android.text")?.toString() ?: ""
-        val fullContent = "$title | $text".trim()
-        if (pkg.contains("bcp") || pkg.contains("yape") || pkg.contains("plin") || pkg.contains("interbank")) {
+        val bigText = extras.getCharSequence("android.bigText")?.toString() ?: ""
+        val fullContent = "$title | $text | $bigText".trim()
+
+        if (pkg.contains("yape") || pkg.contains("bcp") || pkg.contains("plin") || pkg.contains("interbank")) {
             processSmartContent(fullContent, pkg)
         }
     }
@@ -153,11 +180,11 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         if (matcher.find()) {
             val montoRaw = matcher.group(2)?.replace(",", "") ?: "0.00"
             val montoFull = matcher.group(0)!!
-            var nombreRaw = content.replace(montoFull, "", true).replace(Regex("[^a-zA-Z\\\\s]"), "").trim()
-            if (nombreRaw.isEmpty()) nombreRaw = "un cliente"
-            val nombreLimpio = nombreRaw.lowercase().capitalize()
+            var nombreRaw = content.replace(montoFull, "", true).replace(Regex("[^a-zA-Z\\\\sñÑáéíóúÁÉÍÓÚ]"), "").trim()
+            val nombreLimpio = if (nombreRaw.isEmpty()) "un cliente" else nombreRaw.lowercase().capitalize()
             val banco = if (pkg.contains("yape")) "YAPE" else "BCP"
-            awakeAndSpeak("Aviso de Pago. $banco. $nombreLimpio te envió $montoRaw soles.")
+            
+            awakeAndSpeak("¡Aviso de Pago! $banco. $nombreLimpio te envió $montoRaw soles.")
             serviceScope.launch(Dispatchers.IO) { sendToMirror(banco, nombreLimpio, montoRaw) }
             return true
         }
@@ -170,11 +197,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
             (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"; doOutput = true
                 val json = JSONObject().apply { 
-                    put("sender", "PHONE")
-                    put("bank", banco)
-                    put("name", nombre)
-                    put("amt", monto)
-                    put("stark_log", "PROCESADO_OK")
+                    put("sender", "PHONE"); put("bank", banco); put("name", nombre); put("amt", monto) 
                 }
                 OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                 responseCode; disconnect()
@@ -182,7 +205,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         } catch (e: Exception) {}
     }
 
-    private fun enviarSOSaPC() {
+    fun enviarSOSaPC() {
         serviceScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/$currentTopic")
@@ -190,21 +213,13 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                     requestMethod = "POST"; doOutput = true
                     setRequestProperty("Title", "ALERTA_SOS")
                     val json = JSONObject().apply { 
-                        put("sender", "PHONE")
-                        put("type", "SOS")
-                        put("stark_log", "SIRENA_5S") 
+                        put("sender", "PHONE"); put("type", "SOS"); put("stark_log", "SIRENA_5S") 
                     }
                     OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                     responseCode; disconnect()
                 }
             } catch (e: Exception) {}
         }
-    }
-
-    private fun speak(text: String) {
-        val params = Bundle()
-        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC)
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, "STARK_" + System.currentTimeMillis())
     }
 
     override fun onInit(status: Int) {
@@ -219,9 +234,9 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     override fun onDestroy() {
+        activeInstance = null
         try { unregisterReceiver(internalReceiver) } catch (e: Exception) {}
         serviceScope.cancel()
-        if (::tts.isInitialized) { tts.shutdown() }
         super.onDestroy()
     }
 }
