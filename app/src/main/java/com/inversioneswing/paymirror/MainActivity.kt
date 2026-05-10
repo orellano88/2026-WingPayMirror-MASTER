@@ -67,7 +67,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             background = starkBackground
         }
 
-        // --- CABECERA v52.0 ---
         header = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 250)
         }
@@ -89,7 +88,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 20f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v52.0 PHOTOROOM EDITION"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v52.1 PHOTOROOM FINAL"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -114,38 +113,33 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         ledContainer.addView(statusLED); ledContainer.addView(syncLED)
         header.addView(ledContainer)
 
-        // --- TERMINAL NEURAL ---
         val termContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 450).apply { setMargins(0, 30, 0, 30) }
             background = getGlassDrawable(0x66000000.toInt()); setPadding(25, 25, 25, 25)
         }
 
         terminalView = TextView(this).apply {
-            text = "[SISTEMA]: Enlace Neural v52.0 Online\n[SISTEMA]: Logo Photoroom cargado."; textSize = 11f
+            text = "[SISTEMA]: Enlace Neural v52.1 Online\n[SISTEMA]: Logo Photoroom cargado."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
 
-        // --- ESPACIO VACÍO: LOGO CENTRAL CON EFECTO HOLOGRÁFICO ---
         val visualContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            gravity = Gravity.CENTER
         }
 
         centralLogo = ImageView(this).apply {
             layoutParams = FrameLayout.LayoutParams(600, 600).apply { gravity = Gravity.CENTER }
             setImageResource(R.drawable.stark_logo)
-            alpha = 0.4f // Efecto holograma semi-transparente
+            alpha = 0.4f
         }
         
-        // Animación de respiración para el logo central
         ObjectAnimator.ofFloat(centralLogo, "alpha", 0.2f, 0.6f).apply {
             duration = 3000; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.REVERSE; start()
         }
         
         visualContainer.addView(centralLogo)
 
-        // --- BOTONES ---
         val btnLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; weightSum = 4f }
         btnLayout.addView(createGlassButton("⚙", 1f) { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
         btnLayout.addView(createGlassButton("📷 QR", 1f) { openQRScanner() })
@@ -196,6 +190,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         starkTotalTest() 
     }
 
+    private fun makeTransparent(bit: Bitmap): Bitmap {
+        val myBitmap = Bitmap.createBitmap(bit.width, bit.height, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(bit.width * bit.height)
+        bit.getPixels(pixels, 0, bit.width, 0, 0, bit.width, bit.height)
+        for (i in pixels.indices) {
+            val r = Color.red(pixels[i]); val g = Color.green(pixels[i]); val b = Color.blue(pixels[i])
+            if (r > 210 && g > 210 && b > 210) pixels[i] = Color.TRANSPARENT
+        }
+        myBitmap.setPixels(pixels, 0, bit.width, 0, 0, bit.width, bit.height)
+        return myBitmap
+    }
+
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit) = Button(this).apply {
         text = txt; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); textSize = 12f
         layoutParams = LinearLayout.LayoutParams(0, 150, weight).apply { setMargins(5, 10, 5, 10) }
@@ -227,16 +233,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         mainScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/$currentClientCode")
-                (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"; doOutput = true
-                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "v52"); put("stark_log", "PH_LOGO_OK") }
-                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
-                    if (responseCode == 200) withContext(Dispatchers.Main) {
-                        syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                        log("SYNC: OK"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
-                    }
-                    disconnect()
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.doOutput = true
+                val json = JSONObject().apply { put("bank", "WING"); put("amt", "v52"); put("stark_log", "PH_LOGO_OK") }
+                OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
+                if (conn.responseCode == 200) withContext(Dispatchers.Main) {
+                    syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
+                    log("SYNC: OK"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
                 }
+                conn.disconnect()
             } catch (e: Exception) { withContext(Dispatchers.Main) { log("ERR_SYNC: ${e.message}") } }
         }
     }
@@ -247,13 +253,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         mainScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/$currentClientCode")
-                (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"; doOutput = true
-                    setRequestProperty("Title", "ALERTA_SOS")
-                    val json = JSONObject().apply { put("type", "SOS"); put("stark_log", "SIRENA_5S") }
-                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
-                    responseCode; disconnect()
-                }
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.doOutput = true
+                val json = JSONObject().apply { put("type", "SOS"); put("stark_log", "SIRENA_5S") }
+                OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
+                conn.responseCode
+                conn.disconnect()
             } catch (e: Exception) {}
         }
     }
@@ -283,7 +289,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val x = event.values[0]; val y = event.values[1]
             header.translationX = -x * 2; header.translationY = y * 2
             logoIcon.rotationY = x * 4; logoIcon.rotationX = -y * 4
-            // EFECTO PARALLAX EN LOGO CENTRAL
             centralLogo.translationX = x * 10; centralLogo.translationY = -y * 10
             centralLogo.rotationY = x * 15; centralLogo.rotationX = -y * 15
         }
