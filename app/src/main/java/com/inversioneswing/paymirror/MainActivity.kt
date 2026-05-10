@@ -48,14 +48,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         val title = TextView(this).apply {
-            text = "STARK OS v40.7"
+            text = "STARK OS v40.8"
             textSize = 26f
             setTextColor(0xFF00E5FF.toInt()) // Cyan Neón
             setTypeface(null, Typeface.BOLD)
         }
         
         val subTitle = TextView(this).apply {
-            text = "DEFINITIVE NATIVE EDITION"
+            text = "STARK LOGIC REPAIR EDITION"
             textSize = 12f
             setTextColor(Color.GRAY)
         }
@@ -187,17 +187,52 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun starkTotalTest() {
-        log("INICIANDO_TEST_TOTAL")
-        val intent = Intent(this, StarkCaptureService::class.java)
-        val mensaje = "¡Prueba Stark exitosa! Hoy tendrás una venta maestra superior a los 10 mil soles. ¡A por ello, jefe!"
-        intent.putExtra("TEST_VOICE", mensaje)
-        startService(intent)
+        log("INICIANDO_PRUEBA_INTEGRAL_STARK")
         
-        // Simular parpadeo de sync
-        syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-        Handler(Looper.getMainLooper()).postDelayed({
-            syncLED.background = getCircleDrawable(Color.GRAY)
-        }, 3000)
+        // 1. Hablar en el celular (vía Servicio)
+        val intent = Intent(this, StarkCaptureService::class.java)
+        val mensaje = "Prueba Stark exitosa. Hoy tendrás una buena venta que supera los 10 mil soles. ¡A por ello, jefe!"
+        intent.putExtra("TEST_VOICE", mensaje)
+        
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            log("AUDIO: ORDEN_ENVIADA_NATIVA")
+        } catch (e: Exception) {
+            log("ERR_AUDIO: ${e.message}")
+        }
+        
+        // 2. Notificar a la PC (vía ntfy.sh en hilo secundario)
+        Thread {
+            try {
+                val topic = "wingpay_stark_8502345704"
+                val url = URL("https://ntfy.sh/$topic")
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; doOutput = true
+                    setRequestProperty("Title", "TEST STARK v40.8")
+                    val json = JSONObject().apply {
+                        put("bank", "STARK"); put("name", "VENTA MAESTRA"); put("amt", "10,000.00"); put("stark_log", "TEST_MANUAL_OK")
+                    }
+                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
+                    val code = responseCode
+                    if (code == 200) {
+                        runOnUiThread {
+                            syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
+                            log("SYNC_PC: ÉXITO (200 OK)")
+                            Handler(Looper.getMainLooper()).postDelayed({ syncLED.background = getCircleDrawable(Color.GRAY) }, 3000)
+                        }
+                    } else {
+                        runOnUiThread { log("ERR_SYNC: CODE_$code") }
+                    }
+                    disconnect()
+                }
+            } catch (e: Exception) {
+                runOnUiThread { log("ERROR_SYNC: ${e.message}") }
+            }
+        }.start()
     }
 
     private fun updateUIRunner() {
