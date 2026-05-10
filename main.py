@@ -193,13 +193,35 @@ class WingPaySentinel(BoxLayout):
             threading.Thread(target=self.broadcast_to_mirror, args=(bank, nombre, monto)).start()
 
     def speak_stark(self, text):
-        if tts:
-            self.is_speaking = True
-            self.log_to_terminal("AUDIO_SENTINEL: ACTIVADO")
-            def task():
-                tts.speak(text)
-                Clock.schedule_once(lambda dt: setattr(self, 'is_speaking', False), 5)
-            threading.Thread(target=task).start()
+        # PROTOCOLO STARK v40.2: Puente Universal de Audio
+        # En lugar de usar Plyer (flaky), enviamos un Intent al servicio Kotlin
+        self.is_speaking = True
+        self.log_to_terminal("PUENTE_AUDIO: ENVIANDO_INTENT_NATIVO")
+        
+        try:
+            from kivy.utils import platform
+            if platform == 'android':
+                from jnius import autoclass
+                PythonActivity = autoclass('org.kivy.android.PythonActivity')
+                Intent = autoclass('android.content.Intent')
+                ComponentName = autoclass('android.content.ComponentName')
+                context = PythonActivity.mActivity
+                
+                # Crear el Intent dirigido específicamente a nuestro servicio
+                intent = Intent()
+                intent.setComponent(ComponentName("com.inversioneswing.paymirror", "com.inversioneswing.paymirror.StarkCaptureService"))
+                intent.putExtra("TEST_VOICE", text)
+                
+                # Iniciar el servicio con el extra de voz (activará awakeAndSpeak en Kotlin)
+                context.startService(intent)
+                self.log_to_terminal("AUDIO_SENTINEL: INTENT_ENTREGADO_OK")
+            else:
+                self.log_to_terminal(f"SIM_AUDIO: {text}")
+        except Exception as e:
+            self.log_to_terminal(f"ERROR_PUENTE_AUDIO: {e}")
+        
+        # Resetear el brillo del círculo después de 5s
+        Clock.schedule_once(lambda dt: setattr(self, 'is_speaking', False), 5)
 
     def broadcast_to_mirror(self, bank, nombre, monto):
         self.status_pc = "🔵"
