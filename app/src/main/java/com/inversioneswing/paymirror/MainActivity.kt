@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         // --- FONDO STARK GRADIENT ---
-        val background = GradientDrawable(
+        val starkBackground = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(0xFF0F2027.toInt(), 0xFF203A43.toInt(), 0xFF2C5364.toInt())
         )
@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val title = TextView(this).apply {
-            text = "STARK OS v40.5"
+            text = "STARK OS v40.7"
             textSize = 26f
             setTextColor(0xFF00E5FF.toInt()) // Cyan Neón
             setTypeface(null, Typeface.BOLD)
@@ -86,9 +86,9 @@ class MainActivity : AppCompatActivity() {
             background = getCircleDrawable(Color.GRAY)
         }
 
-        ledContainer.addView(TextView(this).apply { text = "RED"; textColor = Color.WHITE; textSize = 10f })
+        ledContainer.addView(TextView(this).apply { text = "RED"; setTextColor(Color.WHITE); textSize = 10f })
         ledContainer.addView(statusLED)
-        ledContainer.addView(TextView(this).apply { text = "SYNC"; textColor = Color.WHITE; textSize = 10f })
+        ledContainer.addView(TextView(this).apply { text = "SYNC"; setTextColor(Color.WHITE); textSize = 10f })
         ledContainer.addView(syncLED)
         header.addView(ledContainer)
 
