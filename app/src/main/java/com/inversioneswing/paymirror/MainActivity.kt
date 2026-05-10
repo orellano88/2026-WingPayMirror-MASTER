@@ -76,7 +76,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             layoutParams = RelativeLayout.LayoutParams(160, 160).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_LEFT); addRule(RelativeLayout.CENTER_VERTICAL)
             }
-            setImageResource(R.drawable.stark_logo)
+            try {
+                val original = BitmapFactory.decodeResource(resources, R.drawable.stark_logo)
+                setImageBitmap(makeTransparent(original))
+            } catch (e: Exception) { setImageResource(R.drawable.stark_logo) }
         }
 
         val titleContainer = LinearLayout(this).apply {
@@ -88,7 +91,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 20f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v53.2 MOTIVATIONAL SYNC"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v54.0 NEURAL CORE EDITION"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -119,7 +122,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         terminalView = TextView(this).apply {
-            text = "[SYNC]: Canal Activo: $currentClientCode\n[SISTEMA]: Enlace Bidireccional Listo."; textSize = 11f
+            text = "[SYNC]: Canal Activo: $currentClientCode\n[SISTEMA]: Enlace Neural v54.0 Online."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
@@ -214,8 +217,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_DE_CONEXIÓN")
-        // --- AUDIO MOTIVADOR v53.2 ---
+        log("CMD: TEST_VINCULACIÓN")
         val mensajeMotivador = "Conexión exitosa. Hoy recibirás un ingreso mayor a 10 mil soles. ¡A por ello, jefe!"
         sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
             setPackage(packageName)
@@ -231,9 +233,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val json = JSONObject().apply { 
                     put("sender", "PHONE")
                     put("bank", "WING")
-                    put("name", "MOTIVACIÓN_STARK")
+                    put("name", "VÍNCULO_EXITOSO")
                     put("amt", "10,000")
-                    put("stark_log", "CONEXIÓN_EXITOSA") 
+                    put("stark_log", "CONEXIÓN_OK") 
                 }
                 OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
                 if (conn.responseCode == 200) withContext(Dispatchers.Main) {
@@ -250,13 +252,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply { 
             setPackage(packageName); putExtra("SOS_CMD_LOCAL", true) 
         })
-        // Envío directo para asegurar rapidez
         mainScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/$currentClientCode")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
-                    setRequestProperty("Title", "ALERTA_SOS")
                     val json = JSONObject().apply { 
                         put("sender", "PHONE")
                         put("type", "SOS")
@@ -285,7 +285,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun checkInitialSystems() {
         if (!isNotificationServiceEnabled()) {
-            AlertDialog.Builder(this).setTitle("DUAL SYNC").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
+            AlertDialog.Builder(this).setTitle("SISTEMA WING").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
         }
     }
 
