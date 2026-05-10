@@ -1,6 +1,9 @@
 package com.inversioneswing.paymirror
 
 import android.content.*
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.*
 import android.provider.Settings
@@ -9,149 +12,206 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import android.graphics.Typeface
+import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var terminalView: TextView
+    private lateinit var statusLED: View
+    private lateinit var syncLED: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // DISEÑO OMEGA SOS (v5.7)
-        val layout = LinearLayout(this).apply {
+        // --- FONDO STARK GRADIENT ---
+        val background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(0xFF0F2027.toInt(), 0xFF203A43.toInt(), 0xFF2C5364.toInt())
+        )
+        
+        val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(60, 60, 60, 60)
-            gravity = Gravity.CENTER
-            setBackgroundColor(0xFF000000.toInt())
+            padding = 40
+            background = background
+        }
+
+        // --- CABECERA STARK ---
+        val header = RelativeLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 250)
+            setPadding(20, 20, 20, 20)
         }
 
         val title = TextView(this).apply {
-            text = "WING SENTINEL v5.7 OMEGA SOS"
-            textSize = 24f
-            setTextColor(0xFFFF0000.toInt()) // Rojo Alerta
+            text = "STARK OS v40.5"
+            textSize = 26f
+            setTextColor(0xFF00E5FF.toInt()) // Cyan Neón
             setTypeface(null, Typeface.BOLD)
-            setPadding(0, 0, 0, 40)
-            gravity = Gravity.CENTER
         }
-
-        val btnSOS = Button(this).apply {
-            text = "🚨 BOTÓN DE PÁNICO SOS 🚨"
-            textSize = 20f
-            setBackgroundColor(0xFFFF0000.toInt())
-            setTextColor(0xFFFFFFFF.toInt())
-            setPadding(0, 60, 0, 60)
-            setOnClickListener { 
-                enviarAlertaSOS()
-            }
-        }
-
-        val btnTestVoice = Button(this).apply {
-            text = "🔊 PROBAR VOZ DE JARVIS"
-            setBackgroundColor(0xFF333333.toInt())
-            setTextColor(0xFFFFFFFF.toInt())
-            setOnClickListener { 
-                val intent = Intent(this@MainActivity, StarkCaptureService::class.java)
-                intent.putExtra("TEST_VOICE", "Señor, sistema listo.")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent)
-                } else {
-                    startService(intent)
-                }
-            }
-        }
-
-        val btnAutoStart = Button(this).apply {
-            text = "CONFIGURAR INICIO AUTOMÁTICO (HUAWEI)"
-            setBackgroundColor(0xFF005577.toInt())
-            setTextColor(0xFFFFFFFF.toInt())
-            setOnClickListener { openAutoStartSettings() }
-        }
-
-        val btnSync = Button(this).apply {
-            text = "REINICIAR OÍDO DE JARVIS"
-            setBackgroundColor(0xFF333333.toInt())
-            setTextColor(0xFFFFFFFF.toInt())
-            setOnClickListener { 
-                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            }
-        }
-
-        layout.addView(title)
-        layout.addView(btnSOS)
-        val space0 = Space(this).apply { layoutParams = LinearLayout.LayoutParams(1, 40) }
-        layout.addView(space0)
-        layout.addView(btnTestVoice)
-        val space1 = Space(this).apply { layoutParams = LinearLayout.LayoutParams(1, 40) }
-        layout.addView(space1)
-        layout.addView(btnAutoStart)
-        val space2 = Space(this).apply { layoutParams = LinearLayout.LayoutParams(1, 40) }
-        layout.addView(space2)
-        layout.addView(btnSync)
         
-        setContentView(layout)
+        val subTitle = TextView(this).apply {
+            text = "DEFINITIVE NATIVE EDITION"
+            textSize = 12f
+            setTextColor(Color.GRAY)
+        }
+
+        val titleBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(title)
+            addView(subTitle)
+        }
+        header.addView(titleBox)
+
+        // Indicadores LED
+        val ledContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            val lp = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT)
+            lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+            layoutParams = lp
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        statusLED = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(40, 40).apply { setMargins(10, 0, 10, 0) }
+            background = getCircleDrawable(Color.RED)
+        }
+        
+        syncLED = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(40, 40).apply { setMargins(10, 0, 10, 0) }
+            background = getCircleDrawable(Color.GRAY)
+        }
+
+        ledContainer.addView(TextView(this).apply { text = "RED"; textColor = Color.WHITE; textSize = 10f })
+        ledContainer.addView(statusLED)
+        ledContainer.addView(TextView(this).apply { text = "SYNC"; textColor = Color.WHITE; textSize = 10f })
+        ledContainer.addView(syncLED)
+        header.addView(ledContainer)
+
+        // --- STARK TERMINAL (LOGS EN VIVO) ---
+        val termContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 400).apply { setMargins(0, 40, 0, 40) }
+            background = getGlassDrawable(0x66000000.toInt())
+            setPadding(20, 20, 20, 20)
+        }
+
+        terminalView = TextView(this).apply {
+            text = "[SISTEMA]: Inicializando protocolos Stark...\n[SISTEMA]: Núcleo listo."
+            textSize = 12f
+            setTextColor(0xFF00FF41.toInt()) // Verde Matrix
+            typeface = Typeface.MONOSPACE
+        }
+        
+        val scroll = ScrollView(this).apply { addView(terminalView) }
+        termContainer.addView(scroll)
+
+        // --- BOTONES DE ACCIÓN ---
+        val btnLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            weightSum = 3f
+        }
+
+        val btnSettings = createGlassButton("⚙", 1f) { 
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }
+        
+        val btnTest = createGlassButton("🧪 TEST", 1f) { 
+            starkTotalTest()
+        }
+
+        val btnSOS = createGlassButton("🚨 SOS", 1f) { 
+            enviarAlertaSOS()
+        }
+
+        btnLayout.addView(btnSettings)
+        btnLayout.addView(btnTest)
+        btnLayout.addView(btnSOS)
+
+        // --- PANEL DE MENSAJES (SIMULADO) ---
+        val msgLabel = TextView(this).apply {
+            text = "HISTORIAL DE ACTIVIDAD"
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            setPadding(0, 40, 0, 20)
+        }
+
+        mainLayout.addView(header)
+        mainLayout.addView(termContainer)
+        mainLayout.addView(btnLayout)
+        mainLayout.addView(msgLabel)
+        
+        setContentView(mainLayout)
 
         checkInitialSystems()
-        iniciarPulsoResurreccion()
+        updateUIRunner()
     }
 
-    private fun openAutoStartSettings() {
-        val intent = Intent()
-        try {
-            intent.component = ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")
-            startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                intent.component = ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")
-                startActivity(intent)
-            } catch (e2: Exception) {
-                Toast.makeText(this, "Busque 'Inicio de aplicaciones' en Ajustes", Toast.LENGTH_LONG).show()
-            }
+    private fun createGlassButton(txt: String, weight: Float, action: () -> Unit): Button {
+        return Button(this).apply {
+            text = txt
+            layoutParams = LinearLayout.LayoutParams(0, 150, weight).apply { setMargins(10, 10, 10, 10) }
+            background = getGlassDrawable(0x33FFFFFF.toInt())
+            setTextColor(Color.WHITE)
+            setTypeface(null, Typeface.BOLD)
+            setOnClickListener { action() }
         }
     }
 
-    private fun iniciarPulsoResurreccion() {
-        val intent = Intent(this, StarkResurrector::class.java)
-        sendBroadcast(intent)
+    private fun getGlassDrawable(color: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = 30f
+            setStroke(2, 0x66FFFFFF.toInt())
+        }
     }
 
-    private fun enviarAlertaSOS() {
-        val token = "8629465941:AAH-5rwmNDTP_91UKZIRrJO_oZ24p1IcIQE"
-        val chatId = "8502345704"
-        val message = "🚨 [ALERTA_SOS] ¡BOTÓN DE PÁNICO ACTIVADO! 🚨\nSe requiere asistencia inmediata."
+    private fun getCircleDrawable(color: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(color)
+        }
+    }
+
+    private fun log(msg: String) {
+        val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+        runOnUiThread {
+            terminalView.append("\n[$time] $msg")
+            // Scroll al final
+            (terminalView.parent as ScrollView).post { (terminalView.parent as ScrollView).fullScroll(View.FOCUS_DOWN) }
+        }
+    }
+
+    private fun starkTotalTest() {
+        log("INICIANDO_TEST_TOTAL")
+        val intent = Intent(this, StarkCaptureService::class.java)
+        val mensaje = "¡Prueba Stark exitosa! Hoy tendrás una venta maestra superior a los 10 mil soles. ¡A por ello, jefe!"
+        intent.putExtra("TEST_VOICE", mensaje)
+        startService(intent)
         
-        Thread {
-            try {
-                val url = URL("https://api.telegram.org/bot$token/sendMessage")
-                (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"; doOutput = true; setRequestProperty("Content-Type", "application/json")
-                    OutputStreamWriter(outputStream).use { it.write(JSONObject().apply { put("chat_id", chatId); put("text", message); put("parse_mode", "Markdown") }.toString()) }
-                    responseCode; disconnect()
+        // Simular parpadeo de sync
+        syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
+        Handler(Looper.getMainLooper()).postDelayed({
+            syncLED.background = getCircleDrawable(Color.GRAY)
+        }, 3000)
+    }
+
+    private fun updateUIRunner() {
+        Handler(Looper.getMainLooper()).postDelayed(object : Runnable {
+            override fun run() {
+                // Actualizar estado del LED de red
+                if (isNotificationServiceEnabled()) {
+                    statusLED.background = getCircleDrawable(Color.GREEN)
+                } else {
+                    statusLED.background = getCircleDrawable(Color.RED)
                 }
-                runOnUiThread { Toast.makeText(this, "SOS ENVIADO A LA RED", Toast.LENGTH_SHORT).show() }
-            } catch (e: Exception) {
-                runOnUiThread { Toast.makeText(this, "ERROR DE RED STARK", Toast.LENGTH_SHORT).show() }
+                Handler(Looper.getMainLooper()).postDelayed(this, 5000)
             }
-        }.start()
-    }
-
-    private fun checkInitialSystems() {
-        if (!isNotificationServiceEnabled()) {
-            showAssistDialog("OÍDO (Notificaciones)", Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-        } else {
-            requestBatteryOptimizationBypass()
-        }
-    }
-
-    private fun requestOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-            startActivity(intent)
-        } else {
-            Toast.makeText(this, "Visión Stark ya está activa", Toast.LENGTH_SHORT).show()
-        }
+        }, 5000)
     }
 
     private fun isNotificationServiceEnabled(): Boolean {
@@ -160,25 +220,23 @@ class MainActivity : AppCompatActivity() {
         return flat != null && flat.contains(cn.flattenToString())
     }
 
-    private fun showAssistDialog(name: String, action: String) {
-        AlertDialog.Builder(this)
-            .setTitle("PROTOCOLO OMEGA")
-            .setMessage("Señor, para que JARVIS pueda gritar los pagos, debe activar el $name.")
-            .setCancelable(false)
-            .setPositiveButton("ACTIVAR") { _, _ -> startActivity(Intent(action)) }
-            .show()
+    private fun checkInitialSystems() {
+        if (!isNotificationServiceEnabled()) {
+            AlertDialog.Builder(this)
+                .setTitle("PROTOCOLO OMEGA")
+                .setMessage("Señor, JARVIS requiere acceso a las notificaciones.")
+                .setPositiveButton("ACTIVAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                .show()
+        }
     }
 
-    private fun requestBatteryOptimizationBypass() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                try {
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                    intent.data = Uri.parse("package:$packageName")
-                    startActivity(intent)
-                } catch (e: Exception) {}
-            }
+    private fun enviarAlertaSOS() {
+        log("ALERTA: SOS Activado localmente.")
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            vibrator.vibrate(1000)
         }
     }
 }
