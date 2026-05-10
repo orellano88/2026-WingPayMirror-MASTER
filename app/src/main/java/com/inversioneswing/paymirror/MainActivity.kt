@@ -9,6 +9,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.os.*
 import android.provider.Settings
@@ -34,11 +36,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var logoIcon: ImageView
     private lateinit var sensorManager: SensorManager
     private var gravitySensor: Sensor? = null
+    private var toneGenerator: ToneGenerator? = null
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        try { toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100) } catch (e: Exception) {}
+
         val starkBackground = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(0xFF0F2027.toInt(), 0xFF203A43.toInt(), 0xFF2C5364.toInt())
@@ -74,7 +79,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v46.0 OMNI-REPAIR"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v47.0 OMNI-BRIDGE"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -106,7 +111,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         terminalView = TextView(this).apply {
-            text = "[RECOVERY]: Sistema v46.0 Iniciado\n[RECOVERY]: Lógica de red restaurada."; textSize = 11f
+            text = "[SISTEMA]: Enlace Omni-Bridge v47.0 Online\n[SISTEMA]: Buzzer UI listo."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
@@ -121,7 +126,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
-        
         checkInitialSystems()
         startStatusMonitor()
     }
@@ -132,7 +136,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         bit.getPixels(pixels, 0, bit.width, 0, 0, bit.width, bit.height)
         for (i in pixels.indices) {
             val r = Color.red(pixels[i]); val g = Color.green(pixels[i]); val b = Color.blue(pixels[i])
-            if (r > 215 && g > 215 && b > 215) pixels[i] = Color.TRANSPARENT
+            if (r > 210 && g > 215 && b > 215) pixels[i] = Color.TRANSPARENT
         }
         myBitmap.setPixels(pixels, 0, bit.width, 0, 0, bit.width, bit.height)
         return myBitmap
@@ -141,7 +145,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit) = Button(this).apply {
         text = txt; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
         layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(10, 10, 10, 10) }
-        background = getGlassDrawable(0x22FFFFFF.toInt()); setOnClickListener { action() }
+        background = getGlassDrawable(0x22FFFFFF.toInt()); setOnClickListener { 
+            try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 150) } catch (e: Exception) {}
+            action() 
+        }
     }
 
     private fun getGlassDrawable(color: Int) = GradientDrawable().apply {
@@ -159,49 +166,57 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_V46_RESTORE")
-        // ENVIAR BROADCAST EXPLÍCITO
+        log("CMD: TEST_OMNI_BRIDGE")
+        // Enviar audio local
         val intent = Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
             setPackage(packageName)
-            putExtra("VOICE_CMD", "Prueba de recuperación v46 exitosa. Hoy tendrás una excelente venta. El enlace con la PC ha sido restaurado.")
+            putExtra("VOICE_CMD", "Enlace Omni Bridge exitoso. Hoy tendrás una gran venta de 10 mil soles. JARVIS está listo.")
         }
         sendBroadcast(intent)
         
+        // Enviar a PC directamente desde la UI
         mainScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.doOutput = true
-                val json = JSONObject().apply {
-                    put("bank", "WING")
-                    put("name", "RECOVERY_TEST")
-                    put("amt", "10,000")
-                    put("stark_log", "RESTORED_OK")
-                }
-                OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
-                val code = conn.responseCode
-                withContext(Dispatchers.Main) {
-                    if (code == 200) {
-                        syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                        log("SYNC: ÉXITO (PC RECIBIÓ)")
-                        delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
-                    } else {
-                        log("ERR_SYNC: CODE_$code")
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; doOutput = true
+                    val json = JSONObject().apply {
+                        put("bank", "WING"); put("name", "OMNI_BRIDGE"); put("amt", "10,000"); put("stark_log", "v47_OK")
                     }
+                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
+                    if (responseCode == 200) withContext(Dispatchers.Main) {
+                        syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
+                        log("SYNC: PC_CONFIRMADA"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                    }
+                    disconnect()
                 }
-                conn.disconnect()
             } catch (e: Exception) { withContext(Dispatchers.Main) { log("ERR_SYNC: ${e.message}") } }
         }
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: Enviando señal de pánico...")
+        log("SOS: Activando Sirena en PC y Celular...")
+        // Alerta local
         val intent = Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
             setPackage(packageName)
+            putExtra("VOICE_CMD", "¡Alerta de pánico! Sistema de emergencia activado.")
             putExtra("SOS_CMD", true)
         }
         sendBroadcast(intent)
+        
+        // Alerta remota directa
+        mainScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; doOutput = true
+                    setRequestProperty("Title", "ALERTA_SOS")
+                    val json = JSONObject().apply { put("type", "SOS"); put("stark_log", "SIRENA_5S") }
+                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
+                    responseCode; disconnect()
+                }
+            } catch (e: Exception) {}
+        }
     }
 
     private fun startStatusMonitor() {
@@ -220,7 +235,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun checkInitialSystems() {
         if (!isNotificationServiceEnabled()) {
-            AlertDialog.Builder(this).setTitle("SISTEMA WING").setMessage(" JARVIS requiere conexión.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
+            AlertDialog.Builder(this).setTitle("OMNI-BRIDGE").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
         }
     }
 
