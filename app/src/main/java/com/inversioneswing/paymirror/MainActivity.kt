@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             background = starkBackground
         }
 
-        // --- CABECERA PARALLAX v44.0 ---
+        // --- CABECERA PARALLAX v45.0 ---
         header = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 250)
         }
@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v44.0 OMNI-LINK EDITION"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v45.0 SILENCE BREAKER"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -101,14 +101,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         ledContainer.addView(statusLED); ledContainer.addView(syncLED)
         header.addView(ledContainer)
 
-        // --- TERMINAL NEURAL ---
+        // --- TERMINAL ---
         val termContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 550).apply { setMargins(0, 30, 0, 30) }
             background = getGlassDrawable(0x66000000.toInt()); setPadding(25, 25, 25, 25)
         }
 
         terminalView = TextView(this).apply {
-            text = "[OMNI-LINK]: Protocolos Nivel 5 Activos\n[OMNI-LINK]: Cola de voz inicializada."; textSize = 11f
+            text = "[SISTEMA]: Enlace Neural v45.0 Online\n[SISTEMA]: Buzzer de Hardware Listo."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
@@ -162,24 +162,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("INICIANDO_OMNI_TEST_v44")
-        // Enviar vía BROADCAST NEURAL v44
-        sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
-            putExtra("VOICE_CMD", "Omni Link exitoso. Hoy tendrás una gran venta superior a los 10 mil soles. ¡A por ello!")
-        })
+        log("CMD: TEST_EXPLICITO_v45")
+        // ENVIAR BROADCAST EXPLÍCITO (Solución definitiva para Huawei)
+        val intent = Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
+            setPackage(packageName) // Hace que el broadcast sea EXPLÍCITO
+            putExtra("VOICE_CMD", "Prueba de audio nivel 45. Hoy tendrás una venta de 10 mil soles. El Buzzer de hardware confirma el enlace.")
+        }
+        sendBroadcast(intent)
         
         mainScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
-                    setRequestProperty("Title", "TEST OMNI-LINK v44")
-                    setRequestProperty("Priority", "4")
-                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "10k"); put("stark_log", "v44_OMNI_OK") }
+                    setRequestProperty("Title", "TEST v45 SILENCE BREAKER")
+                    setRequestProperty("Priority", "5")
+                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "10k"); put("stark_log", "v45_BUZZER_OK") }
                     OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                     if (responseCode == 200) withContext(Dispatchers.Main) {
                         syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                        log("OMNI_SYNC_PC: ÉXITO"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                        log("SYNC: ENVIADO_CON_PRIORIDAD_5"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
                     }
                     disconnect()
                 }
@@ -188,16 +190,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: Activando Sirena Prioridad 5 en PC...")
-        sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply { putExtra("SOS_CMD", true) })
+        log("CMD: SOS_EXPLICITO")
+        sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
+            setPackage(packageName)
+            putExtra("SOS_CMD", true)
+        })
     }
 
     private fun startStatusMonitor() {
         mainScope.launch {
             while (isActive) {
                 statusLED.background = if (isNotificationServiceEnabled()) getCircleDrawable(Color.GREEN) else getCircleDrawable(Color.RED)
-                // Efecto latido
-                statusLED.alpha = 0.5f; delay(200); statusLED.alpha = 1.0f; delay(4800)
+                delay(5000)
             }
         }
     }
@@ -209,7 +213,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun checkInitialSystems() {
         if (!isNotificationServiceEnabled()) {
-            AlertDialog.Builder(this).setTitle("OMNI-LINK").setMessage("Señor, JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
+            AlertDialog.Builder(this).setTitle("ENLACE NEURAL").setMessage("JARVIS requiere el puente de notificaciones.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
         }
     }
 
@@ -218,10 +222,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val x = event.values[0]; val y = event.values[1]
             header.translationX = -x * 3; header.translationY = y * 3
             logoIcon.rotationY = x * 5; logoIcon.rotationX = -y * 5
-            
-            // NOVEDAD v44: El color del logo reacciona sutilmente al movimiento
-            val colorFilter = LightingColorFilter(0xFFFFFF, (Math.abs(x) * 20).toInt() shl 16)
-            logoIcon.colorFilter = colorFilter
         }
     }
     override fun onAccuracyChanged(s: Sensor?, a: Int) {}
