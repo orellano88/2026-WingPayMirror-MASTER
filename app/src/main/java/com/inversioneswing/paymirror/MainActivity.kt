@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var syncLED: View
     private lateinit var header: RelativeLayout
     private lateinit var logoIcon: ImageView
+    private lateinit var centralLogo: ImageView
     private lateinit var sensorManager: SensorManager
     private var gravitySensor: Sensor? = null
     private var toneGenerator: ToneGenerator? = null
@@ -66,6 +67,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             background = starkBackground
         }
 
+        // --- CABECERA v52.0 ---
         header = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 250)
         }
@@ -75,10 +77,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             layoutParams = RelativeLayout.LayoutParams(160, 160).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_LEFT); addRule(RelativeLayout.CENTER_VERTICAL)
             }
-            try {
-                val original = BitmapFactory.decodeResource(resources, R.drawable.stark_logo)
-                setImageBitmap(makeTransparent(original))
-            } catch (e: Exception) { setImageResource(R.drawable.stark_logo) }
+            setImageResource(R.drawable.stark_logo)
         }
 
         val titleContainer = LinearLayout(this).apply {
@@ -90,7 +89,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 20f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v50.0 TOTAL DUAL SYNC"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v52.0 PHOTOROOM EDITION"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -115,28 +114,49 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         ledContainer.addView(statusLED); ledContainer.addView(syncLED)
         header.addView(ledContainer)
 
+        // --- TERMINAL NEURAL ---
         val termContainer = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 550).apply { setMargins(0, 30, 0, 30) }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 450).apply { setMargins(0, 30, 0, 30) }
             background = getGlassDrawable(0x66000000.toInt()); setPadding(25, 25, 25, 25)
         }
 
         terminalView = TextView(this).apply {
-            text = "[DUAL_SYNC]: Escuchando canal: $currentClientCode\n[SISTEMA]: Sensores v50.0 Activos."; textSize = 11f
+            text = "[SISTEMA]: Enlace Neural v52.0 Online\n[SISTEMA]: Logo Photoroom cargado."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
 
+        // --- ESPACIO VACÍO: LOGO CENTRAL CON EFECTO HOLOGRÁFICO ---
+        val visualContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            gravity = Gravity.CENTER
+        }
+
+        centralLogo = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(600, 600).apply { gravity = Gravity.CENTER }
+            setImageResource(R.drawable.stark_logo)
+            alpha = 0.4f // Efecto holograma semi-transparente
+        }
+        
+        // Animación de respiración para el logo central
+        ObjectAnimator.ofFloat(centralLogo, "alpha", 0.2f, 0.6f).apply {
+            duration = 3000; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.REVERSE; start()
+        }
+        
+        visualContainer.addView(centralLogo)
+
+        // --- BOTONES ---
         val btnLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; weightSum = 4f }
         btnLayout.addView(createGlassButton("⚙", 1f) { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
         btnLayout.addView(createGlassButton("📷 QR", 1f) { openQRScanner() })
         btnLayout.addView(createGlassButton("🧪 TEST", 1f) { starkTotalTest() })
         btnLayout.addView(createGlassButton("🚨 SOS", 1f) { enviarAlertaSOS() })
 
-        mainLayout.addView(header); mainLayout.addView(termContainer); mainLayout.addView(btnLayout)
+        mainLayout.addView(header); mainLayout.addView(termContainer); mainLayout.addView(visualContainer); mainLayout.addView(btnLayout)
         
         val manualBtn = TextView(this).apply {
             text = "VINCULACIÓN MANUAL"; textSize = 10f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER
-            setPadding(0, 40, 0, 0)
+            setPadding(0, 20, 0, 20)
             setOnClickListener { showManualEntryDialog() }
         }
         mainLayout.addView(manualBtn)
@@ -152,7 +172,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun openQRScanner() {
         val options = ScanOptions().apply {
             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            setPrompt("Apunta al QR de tu Estación PC")
+            setPrompt("Escanea el QR de tu Estación")
             setBeepEnabled(true)
             setOrientationLocked(false)
         }
@@ -171,29 +191,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         log("VÍNCULO: SINCRONIZANDO CANAL $code")
         currentClientCode = code
         getSharedPreferences("STARK_PREFS", MODE_PRIVATE).edit().putString("CLIENT_CODE", code).apply()
-        
         val intent = Intent(this, StarkCaptureService::class.java).apply { putExtra("UPDATE_CODE", code) }
         startService(intent)
-        
-        log("DUAL_SYNC: ENLACE REESTABLECIDO")
         starkTotalTest() 
-    }
-
-    private fun makeTransparent(bit: Bitmap): Bitmap {
-        val myBitmap = Bitmap.createBitmap(bit.width, bit.height, Bitmap.Config.ARGB_8888)
-        val pixels = IntArray(bit.width * bit.height)
-        bit.getPixels(pixels, 0, bit.width, 0, 0, bit.width, bit.height)
-        for (i in pixels.indices) {
-            val r = Color.red(pixels[i]); val g = Color.green(pixels[i]); val b = Color.blue(pixels[i])
-            if (r > 210 && g > 210 && b > 210) pixels[i] = Color.TRANSPARENT
-        }
-        myBitmap.setPixels(pixels, 0, bit.width, 0, 0, bit.width, bit.height)
-        return myBitmap
     }
 
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit) = Button(this).apply {
         text = txt; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); textSize = 12f
-        layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(5, 10, 5, 10) }
+        layoutParams = LinearLayout.LayoutParams(0, 150, weight).apply { setMargins(5, 10, 5, 10) }
         background = getGlassDrawable(0x22FFFFFF.toInt()); setOnClickListener { 
             try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 100) } catch (e: Exception) {}
             action() 
@@ -215,22 +220,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_DUAL_SYNC_v50")
+        log("CMD: TEST_v52")
         sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
-            setPackage(packageName)
-            putExtra("VOICE_CMD", "Sistema v50 vinculado. El canal dual de SOS está listo.")
+            setPackage(packageName); putExtra("VOICE_CMD", "Vínculo v52 exitoso. Hoy tendrás una venta superior a los 10 mil soles. ¡A por ello!")
         })
-        
         mainScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/$currentClientCode")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
-                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "v50"); put("stark_log", "v50_DUAL_OK") }
+                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "v52"); put("stark_log", "PH_LOGO_OK") }
                     OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                     if (responseCode == 200) withContext(Dispatchers.Main) {
                         syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                        log("SYNC: PC_VINCULADA_OK"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                        log("SYNC: OK"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
                     }
                     disconnect()
                 }
@@ -239,8 +242,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: LANZANDO SEÑAL A PC...")
+        log("SOS: LANZANDO SEÑAL...")
         sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply { setPackage(packageName); putExtra("SOS_CMD", true) })
+        mainScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://ntfy.sh/$currentClientCode")
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; doOutput = true
+                    setRequestProperty("Title", "ALERTA_SOS")
+                    val json = JSONObject().apply { put("type", "SOS"); put("stark_log", "SIRENA_5S") }
+                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
+                    responseCode; disconnect()
+                }
+            } catch (e: Exception) {}
+        }
     }
 
     private fun startStatusMonitor() {
@@ -259,15 +274,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun checkInitialSystems() {
         if (!isNotificationServiceEnabled()) {
-            AlertDialog.Builder(this).setTitle("DUAL SYNC").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
+            AlertDialog.Builder(this).setTitle("IMPORTACIONES WING").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
         }
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_GRAVITY) {
             val x = event.values[0]; val y = event.values[1]
-            header.translationX = -x * 3; header.translationY = y * 3
-            logoIcon.rotationY = x * 5; logoIcon.rotationX = -y * 5
+            header.translationX = -x * 2; header.translationY = y * 2
+            logoIcon.rotationY = x * 4; logoIcon.rotationX = -y * 4
+            // EFECTO PARALLAX EN LOGO CENTRAL
+            centralLogo.translationX = x * 10; centralLogo.translationY = -y * 10
+            centralLogo.rotationY = x * 15; centralLogo.rotationX = -y * 15
         }
     }
     override fun onAccuracyChanged(s: Sensor?, a: Int) {}
