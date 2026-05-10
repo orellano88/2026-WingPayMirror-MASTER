@@ -190,6 +190,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
             // CONSENSO STARK-QWEN: Uso de Executor para evitar fugas de memoria en EMUI
             networkExecutor.execute {
                 sendToMirror(banco, nombreLimpio, montoRaw)
+                sendToTelegram("💰 *PAGO RECIBIDO: $banco*\n👤 *CLIENTE:* $nombreLimpio\n💵 *MONTO:* S/ $montoRaw")
             }
             return true
         }
@@ -211,7 +212,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                 requestMethod = "POST"; doOutput = true
                 setRequestProperty("Title", "PAGO $banco")
                 val json = JSONObject().apply {
-                    put("bank", banco); put("name", nombre); put("amt", monto); put("time", System.currentTimeMillis())
+                    put("bank", banco); put("name", nombre); put("amt", monto); put("time", System.currentTimeMillis()); put("stark_log", "PROCESADO_OK")
                 }
                 OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                 responseCode; disconnect()

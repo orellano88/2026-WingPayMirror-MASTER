@@ -42,27 +42,34 @@ class MessageBubble(BoxLayout):
         self.spacing = 5
         self.bind(minimum_height=self.setter('height'))
 
-# --- MOTOR PRINCIPAL: WING PAY SENTINEL v39.0 (STARK GLASS EDITION) ---
+# --- MOTOR PRINCIPAL: WING PAY SENTINEL v40.0 (STARK PERFECTED) ---
 class WingPaySentinel(BoxLayout):
     status_ntfy = StringProperty("🔴") 
     status_pc = StringProperty("⚪")
-    pulse_color = ListProperty([0.04, 0.6, 0.35, 0.5]) # Color de la "animación Lottie"
+    pulse_color = ListProperty([0, 0.8, 1, 0.5]) # Azul Stark
+    terminal_logs = ListProperty([]) # Para el 'Stark Terminal'
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'vertical'
         self.start_omega_sync()
-        self.start_lottie_pulse()
+        self.start_stark_animations()
 
-    def start_lottie_pulse(self):
-        # Simulación de animación Lottie: Pulso de luz circular
-        Clock.schedule_interval(self._update_pulse, 0.05)
+    def start_stark_animations(self):
+        # Animación dual: Pulso y Movimiento de Fondo
+        Clock.schedule_interval(self._update_stark_fx, 0.05)
 
-    def _update_pulse(self, dt):
-        # Hace que el círculo de estado "respire"
+    def _update_stark_fx(self, dt):
         import math
-        alpha = (math.sin(Clock.get_time() * 3) + 1) / 4 + 0.2
-        self.pulse_color[3] = alpha
+        t = Clock.get_time()
+        # Pulso del núcleo
+        self.pulse_color[3] = (math.sin(t * 4) + 1) / 4 + 0.2
+        # El degradado se movería sutilmente mediante los vértices en el KV
+
+    def log_to_terminal(self, msg):
+        time_str = datetime.now().strftime("%H:%M:%S")
+        self.terminal_logs.append(f"[{time_str}] STARK_LOG: {msg}")
+        if len(self.terminal_logs) > 50: self.terminal_logs.pop(0)
 
     def request_emui_permissions(self):
         try:
@@ -73,12 +80,11 @@ class WingPaySentinel(BoxLayout):
                 Intent = autoclass('android.content.Intent')
                 Settings = autoclass('android.provider.Settings')
                 currentActivity = PythonActivity.mActivity
-                intent_notif = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                currentActivity.startActivity(intent_notif)
-                intent_bat = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                currentActivity.startActivity(intent_bat)
-        except Exception as e:
-            self.add_message(f"Error abriendo permisos: {e}", is_user=False)
+                
+                # Secuencia de permisos Stark
+                currentActivity.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                Clock.schedule_once(lambda dt: currentActivity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)), 1)
+        except: pass
 
     def start_omega_sync(self):
         threading.Thread(target=self.ntfy_listener_task, daemon=True).start()
@@ -86,22 +92,28 @@ class WingPaySentinel(BoxLayout):
     def ntfy_listener_task(self):
         topic = "wingpay_stark_8502345704"
         url = f"https://ntfy.sh/{topic}/json"
+        self.log_to_terminal(f"Conectando a Red Stark... {topic}")
         while True:
             try:
                 with requests.get(url, stream=True, timeout=None) as r:
                     self.status_ntfy = "🟢" 
+                    self.log_to_terminal("ENLACE ESTABLECIDO CON SATÉLITE NTFY")
                     for line in r.iter_lines():
                         if line:
                             self.status_pc = "🔵"
                             data = json.loads(line)
                             if "message" in data:
+                                self.log_to_terminal(f"DATOS_ENTRANTES: {data['message'][:30]}...")
                                 try:
                                     msg_data = json.loads(data["message"])
+                                    if "stark_log" in msg_data:
+                                        self.log_to_terminal(f"STATUS_CORE: {msg_data['stark_log']}")
                                     self.handle_remote_payment(msg_data)
                                 except: pass
                             Clock.schedule_once(lambda dt: setattr(self, 'status_pc', "⚪"), 2)
             except Exception as e:
                 self.status_ntfy = "🔴"
+                self.log_to_terminal(f"ERROR_ENLACE: {e}")
                 import time
                 time.sleep(15)
 
@@ -115,7 +127,8 @@ class WingPaySentinel(BoxLayout):
 
     def trigger_panic(self):
         if vibrator: vibrator.vibrate(0.5)
-        self.add_message("🚨 ALARMA DE PÁNICO ACTIVADA 🚨", is_user=True)
+        self.add_message("🚨 PROTOCOLO DE PÁNICO ACTIVADO 🚨", is_user=True)
+        self.log_to_terminal("ALERTA: Pánico activado por el usuario.")
 
     def select_media(self):
         if filechooser: filechooser.open_file(on_selection=self._on_selection)
@@ -129,16 +142,16 @@ class WingPaySentinel(BoxLayout):
         if msg:
             text_input.text = ""
             self.add_message(msg, is_user=True)
+            self.log_to_terminal(f"COMANDO_MANUAL: {msg}")
 
     @mainthread
     def add_message(self, text, is_user=True, is_payment=False, bank="YAPE", source=""):
-        # Colores Glassmorphism (Semi-transparentes)
         if is_payment:
-            bg = [1, 1, 1, 0.2] # Vidrio esmerilado claro
-            border = [0.1, 0.8, 0.4, 0.6] if bank == "YAPE" else [1, 0.6, 0.1, 0.6]
+            bg = [0.1, 0.4, 0.5, 0.4] # Vidrio Stark Azulado
+            border = [0, 0.8, 1, 0.8] # Borde Neón
         else:
-            bg = [1, 1, 1, 0.15] if is_user else [1, 1, 1, 0.25]
-            border = [1, 1, 1, 0.3]
+            bg = [1, 1, 1, 0.1]
+            border = [1, 1, 1, 0.25]
         
         align = "center" if is_payment else ("right" if is_user else "left")
         new_entry = {
@@ -157,17 +170,21 @@ class WingPaySentinel(BoxLayout):
         self.ids.rv.scroll_y = 0
 
     def display_media(self, path):
-        Clock.schedule_once(lambda dt: self.add_message(f"Foto: {os.path.basename(path)}", is_user=True, source=path), 0)
+        Clock.schedule_once(lambda dt: self.add_message(f"Archivo_Stark: {os.path.basename(path)}", is_user=True, source=path), 0)
 
     def intercept_payment(self, bank, details, remote=False):
-        self.add_message(f"💰 {bank} CONFIRMADO\n{details}", is_user=False, is_payment=True, bank=bank)
-        if not remote: threading.Thread(target=self.broadcast_to_mirror, args=(bank, "Cliente", "S/ 0.00")).start()
+        self.add_message(f"💎 PAGO {bank} CONFIRMADO\n{details}", is_user=False, is_payment=True, bank=bank)
+        if not remote: 
+            self.log_to_terminal(f"DETECTADO_LOCAL: {bank}")
+            threading.Thread(target=self.broadcast_to_mirror, args=(bank, "Cliente", "S/ 0.00")).start()
 
     def broadcast_to_mirror(self, bank, nombre, monto):
         self.status_pc = "🔵"
         try:
-            requests.post(f"https://ntfy.sh/wingpay_stark_8502345704", data=json.dumps({"bank": bank, "name": nombre, "amt": monto}))
-        except: self.status_pc = "🔴"
+            requests.post(f"https://ntfy.sh/wingpay_stark_8502345704", data=json.dumps({"bank": bank, "name": nombre, "amt": monto, "stark_log": "SYNC_OK"}))
+        except: 
+            self.status_pc = "🔴"
+            self.log_to_terminal("FALLO_SINC_NUBE")
         finally: Clock.schedule_once(lambda dt: setattr(self, 'status_pc', "⚪"), 3)
 
 class WingPayApp(App):
@@ -180,34 +197,34 @@ class WingPayApp(App):
         BoxLayout:
             orientation: 'vertical'
             size_hint: None, None
-            width: min(Window.width * 0.75, self.minimum_width + 30) if not root.has_image else '260dp'
+            width: min(Window.width * 0.8, self.minimum_width + 40) if not root.has_image else '280dp'
             height: self.minimum_height
-            padding: [15, 12]
+            padding: [16, 12]
             canvas.before:
-                # EFECTO GLASSMORPHISM
                 Color:
                     rgba: root.bg_color
                 RoundedRectangle:
                     pos: self.pos
                     size: self.size
-                    radius: [18, 18, 2, 18] if root.is_user else [18, 18, 18, 2]
+                    radius: [20, 20, 4, 20] if root.is_user else [20, 20, 20, 4]
+                # BORDE DE NEÓN GLOW
                 Color:
                     rgba: root.border_color
                 Line:
-                    width: 1.2
-                    rounded_rectangle: (self.x, self.y, self.width, self.height, 18, 18, 2, 18) if root.is_user else (self.x, self.y, self.width, self.height, 18, 18, 18, 2)
+                    width: 1.5
+                    rounded_rectangle: (self.x, self.y, self.width, self.height, 20, 20, 4, 20) if root.is_user else (self.x, self.y, self.width, self.height, 20, 20, 20, 4)
 
             AsyncImage:
                 source: root.source
                 size_hint_y: None
-                height: '220dp' if root.has_image else 0
+                height: '240dp' if root.has_image else 0
                 opacity: 1 if root.has_image else 0
                 allow_stretch: True
 
             Label:
                 text: root.text
-                color: 1, 1, 1, 1 # Texto blanco para destacar sobre el vidrio
-                font_size: '16sp'
+                color: 1, 1, 1, 1
+                font_size: '17sp'
                 size_hint: 1, None
                 height: self.texture_size[1]
                 text_size: self.width, None
@@ -216,7 +233,7 @@ class WingPayApp(App):
 
             Label:
                 text: root.time
-                color: 1, 1, 1, 0.6
+                color: 1, 1, 1, 0.5
                 font_size: '11sp'
                 size_hint_y: None
                 height: '18dp'
@@ -227,23 +244,22 @@ WingPaySentinel:
     BoxLayout:
         orientation: 'vertical'
         canvas.before:
-            # FONDO GRADIENT (STARK STYLE: #0f2027 -> #203a43)
             Color:
                 rgba: 1, 1, 1, 1
             Mesh:
                 mode: 'triangle_fan'
-                vertices: [self.x, self.y, 0, 0, 0.05, 0.12, 0.15, 1, self.right, self.y, 0, 0, 0.12, 0.22, 0.26, 1, self.right, self.top, 0, 0, 0.15, 0.25, 0.28, 1, self.x, self.top, 0, 0, 0.05, 0.12, 0.15, 1]
+                vertices: [self.x, self.y, 0, 0, 0.02, 0.1, 0.15, 1, self.right, self.y, 0, 0, 0.1, 0.2, 0.25, 1, self.right, self.top, 0, 0, 0.15, 0.25, 0.3, 1, self.x, self.top, 0, 0, 0.02, 0.1, 0.15, 1]
                 indices: [0, 1, 2, 3]
 
-        # CABECERA GLASS
+        # CABECERA STARK PERFECTED
         BoxLayout:
             size_hint_y: None
-            height: '90dp'
+            height: '100dp'
             padding: '15dp'
-            spacing: '10dp'
+            spacing: '15dp'
             canvas.before:
                 Color:
-                    rgba: 1, 1, 1, 0.1
+                    rgba: 1, 1, 1, 0.05
                 Rectangle:
                     pos: self.pos
                     size: self.size
@@ -251,24 +267,22 @@ WingPaySentinel:
             BoxLayout:
                 orientation: 'vertical'
                 Label:
-                    text: "WING PAY STARK OS"
+                    text: "STARK OS v40.0"
                     bold: True
-                    font_size: '20sp'
+                    font_size: '22sp'
+                    color: 0, 0.8, 1, 1
                     halign: 'left'
                     text_size: self.size
-                BoxLayout:
-                    spacing: '15dp'
-                    Label:
-                        text: f"SISTEMA: {root.status_ntfy}  SYNC: {root.status_pc}"
-                        font_size: '13sp'
-                        color: 0.8, 0.9, 1, 1
-                        halign: 'left'
-                        text_size: self.size
+                Label:
+                    text: f"ENLACE: {root.status_ntfy}  ESPEJO: {root.status_pc}"
+                    font_size: '12sp'
+                    color: 0.7, 0.7, 0.7, 1
+                    halign: 'left'
+                    text_size: self.size
 
-            # ESPACIO PARA ANIMACIÓN LOTTIE (PULSO DE ESTADO)
             Widget:
                 size_hint: None, None
-                size: '40dp', '40dp'
+                size: '45dp', '45dp'
                 canvas:
                     Color:
                         rgba: root.pulse_color
@@ -276,25 +290,47 @@ WingPaySentinel:
                         pos: self.x, self.y
                         size: self.size
                     Color:
-                        rgba: 1, 1, 1, 0.8
+                        rgba: 1, 1, 1, 0.9
                     Line:
-                        width: 1.5
-                        circle: (self.center_x, self.center_y, 15)
+                        width: 2
+                        circle: (self.center_x, self.center_y, 18)
 
             Button:
-                text: "🛠"
+                text: "⚙"
                 size_hint_x: None
                 width: '50dp'
                 background_color: 1, 1, 1, 0.1
+                font_size: '24sp'
                 on_release: root.request_emui_permissions()
             Button:
                 text: "🚨"
                 size_hint_x: None
                 width: '50dp'
-                background_color: 0.8, 0.1, 0.1, 0.6
+                background_color: 1, 0, 0, 0.4
                 on_release: root.trigger_panic()
 
-        # CHAT RECYCLEVIEW
+        # ÁREA DE LOGS (STARK TERMINAL) - COLAPSABLE/TRANSLÚCIDA
+        BoxLayout:
+            size_hint_y: 0.25
+            orientation: 'vertical'
+            canvas.before:
+                Color:
+                    rgba: 0, 0, 0, 0.4
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+            ScrollView:
+                Label:
+                    text: "\\n".join(root.terminal_logs)
+                    font_name: 'Roboto' # O Courier si estuviera disponible
+                    font_size: '10sp'
+                    color: 0, 1, 0.4, 0.8 # Verde Terminal
+                    size_hint_y: None
+                    height: self.texture_size[1]
+                    text_size: self.width, None
+                    padding: [10, 5]
+
+        # CHAT
         RecycleView:
             id: rv
             viewclass: 'MessageBubble'
@@ -307,42 +343,37 @@ WingPaySentinel:
                 spacing: '15dp'
                 padding: '15dp'
 
-        # BARRA DE ENTRADA GLASS
+        # BARRA DE ENTRADA GLASS NEÓN
         BoxLayout:
             size_hint_y: None
-            height: '80dp'
-            padding: '10dp'
-            spacing: '12dp'
+            height: '85dp'
+            padding: '12dp'
+            spacing: '15dp'
             canvas.before:
                 Color:
-                    rgba: 1, 1, 1, 0.08
+                    rgba: 1, 1, 1, 0.05
                 Rectangle:
                     pos: self.pos
                     size: self.size
 
-            Button:
-                text: "📎"
-                size_hint_x: None
-                width: '50dp'
-                background_color: 1, 1, 1, 0.1
-                on_release: root.select_media()
-
             TextInput:
                 id: ti
-                hint_text: "Mensaje cifrado..."
+                hint_text: "Inyectar comando..."
                 multiline: False
-                background_color: 1, 1, 1, 0.1
+                background_color: 1, 1, 1, 0.05
                 foreground_color: 1, 1, 1, 1
-                cursor_color: 0, 0.8, 1, 1
+                font_size: '16sp'
+                padding: [15, 12]
                 on_text_validate: root.send_action(ti)
             
             Button:
                 text: "➤"
                 size_hint_x: None
-                width: '60dp'
-                background_color: 0, 0.5, 0.8, 0.6
+                width: '65dp'
+                background_color: 0, 0.6, 1, 0.5
                 on_release: root.send_action(ti)
 ''')
+
 
 
 
