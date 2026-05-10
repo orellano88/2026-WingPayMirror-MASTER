@@ -50,7 +50,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             background = starkBackground
         }
 
-        // --- CABECERA PARALLAX v45.1 ---
         header = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 250)
         }
@@ -75,7 +74,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v45.1 SILENCE BREAKER"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v46.0 OMNI-REPAIR"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -101,19 +100,17 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         ledContainer.addView(statusLED); ledContainer.addView(syncLED)
         header.addView(ledContainer)
 
-        // --- TERMINAL NEURAL ---
         val termContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 550).apply { setMargins(0, 30, 0, 30) }
             background = getGlassDrawable(0x66000000.toInt()); setPadding(25, 25, 25, 25)
         }
 
         terminalView = TextView(this).apply {
-            text = "[SISTEMA]: Enlace Neural v45.1 Online\n[SISTEMA]: Buzzer de Hardware Listo."; textSize = 11f
+            text = "[RECOVERY]: Sistema v46.0 Iniciado\n[RECOVERY]: Lógica de red restaurada."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
 
-        // --- BOTONES ---
         val btnLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; weightSum = 3f }
         btnLayout.addView(createGlassButton("⚙", 1f) { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
         btnLayout.addView(createGlassButton("🧪 TEST", 1f) { starkTotalTest() })
@@ -162,47 +159,56 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: INICIANDO_OMNI_TEST")
-        // ENVIAR BROADCAST EXPLÍCITO (Solución definitiva para Huawei)
+        log("CMD: TEST_V46_RESTORE")
+        // ENVIAR BROADCAST EXPLÍCITO
         val intent = Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
-            setPackage(packageName) 
-            putExtra("VOICE_CMD", "Omni Link exitoso. Hoy tendrás una gran venta superior a los 10 mil soles. ¡A por ello!")
+            setPackage(packageName)
+            putExtra("VOICE_CMD", "Prueba de recuperación v46 exitosa. Hoy tendrás una excelente venta. El enlace con la PC ha sido restaurado.")
         }
         sendBroadcast(intent)
         
         mainScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
-                (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"; doOutput = true
-                    setRequestProperty("Title", "TEST OMNI-LINK v45.1")
-                    setRequestProperty("Priority", "5")
-                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "10k"); put("stark_log", "v45_FINAL_OK") }
-                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
-                    if (responseCode == 200) withContext(Dispatchers.Main) {
-                        syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                        log("OMNI_SYNC: ÉXITO"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
-                    }
-                    disconnect()
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.doOutput = true
+                val json = JSONObject().apply {
+                    put("bank", "WING")
+                    put("name", "RECOVERY_TEST")
+                    put("amt", "10,000")
+                    put("stark_log", "RESTORED_OK")
                 }
+                OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
+                val code = conn.responseCode
+                withContext(Dispatchers.Main) {
+                    if (code == 200) {
+                        syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
+                        log("SYNC: ÉXITO (PC RECIBIÓ)")
+                        delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                    } else {
+                        log("ERR_SYNC: CODE_$code")
+                    }
+                }
+                conn.disconnect()
             } catch (e: Exception) { withContext(Dispatchers.Main) { log("ERR_SYNC: ${e.message}") } }
         }
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: Activando Sirena Prioridad 5 en PC...")
-        sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
+        log("SOS: Enviando señal de pánico...")
+        val intent = Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
             setPackage(packageName)
             putExtra("SOS_CMD", true)
-        })
+        }
+        sendBroadcast(intent)
     }
 
     private fun startStatusMonitor() {
         mainScope.launch {
             while (isActive) {
                 statusLED.background = if (isNotificationServiceEnabled()) getCircleDrawable(Color.GREEN) else getCircleDrawable(Color.RED)
-                // Efecto latido
-                statusLED.alpha = 0.5f; delay(200); statusLED.alpha = 1.0f; delay(4800)
+                delay(5000)
             }
         }
     }
@@ -214,7 +220,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun checkInitialSystems() {
         if (!isNotificationServiceEnabled()) {
-            AlertDialog.Builder(this).setTitle("OMNI-LINK").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
+            AlertDialog.Builder(this).setTitle("SISTEMA WING").setMessage(" JARVIS requiere conexión.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
         }
     }
 
