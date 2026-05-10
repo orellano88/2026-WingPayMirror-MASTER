@@ -25,22 +25,19 @@ import java.util.concurrent.Executors
 class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitListener {
 
     private val CHANNEL_ID = "WING_CORE_CHANNEL"
-    private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
+    private var pcListenerJob: Job? = null
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var tts: TextToSpeech
     private var isTtsReady = false
     private val pendingMessages = Collections.synchronizedList(mutableListOf<String>())
     private lateinit var wakeLock: PowerManager.WakeLock
     private var toneGenerator: ToneGenerator? = null
+    private var currentTopic: String = "wingpay_stark_8502345704"
 
-    // --- RECEPTOR NEURAL v46.0 (RECUPERACIÓN TOTAL) ---
     private val internalReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             intent?.getStringExtra("VOICE_CMD")?.let { awakeAndSpeak(it) }
-            if (intent?.getBooleanExtra("SOS_CMD", false) == true) { 
-                awakeAndSpeak("Activando protocolo de pánico.")
-                enviarSOSaPC() 
-            }
+            if (intent?.getBooleanExtra("SOS_CMD", false) == true) { enviarSOSaPC() }
         }
     }
 
@@ -54,12 +51,21 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
         registerReceiver(internalReceiver, IntentFilter("com.inversioneswing.STARK_INTERNAL_CMD"))
         tts = TextToSpeech(this, this)
+        
+        // Cargar tópico guardado e iniciar escucha de PC
+        reloadTopic()
+    }
+
+    private fun reloadTopic() {
+        val prefs = getSharedPreferences("STARK_PREFS", MODE_PRIVATE)
+        currentTopic = prefs.getString("CLIENT_CODE", currentTopic)!!
         startPCListener()
     }
 
     private fun startPCListener() {
-        serviceScope.launch(Dispatchers.IO) {
-            val url = URL("https://ntfy.sh/wingpay_stark_8502345704/json")
+        pcListenerJob?.cancel()
+        pcListenerJob = serviceScope.launch(Dispatchers.IO) {
+            val url = URL("https://ntfy.sh/$currentTopic/json")
             while (isActive) {
                 try {
                     val conn = url.openConnection() as HttpURLConnection
@@ -69,7 +75,10 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                             val json = JSONObject(line)
                             if (json.has("message")) {
                                 val msg = json.getString("message")
-                                if (msg.contains("PC_CMD:")) {
+                                if (msg.contains("PC_SOS")) {
+                                    // --- REACCIÓN A SOS DE PC ---
+                                    dispararAlarmaLocal("¡Atención! Alerta de pánico recibida desde la estación de mando.")
+                                } else if (msg.contains("PC_CMD:")) {
                                     awakeAndSpeak(msg.replace("PC_CMD:", "").trim())
                                 }
                             }
@@ -80,6 +89,16 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         }
     }
 
+    private fun dispararAlarmaLocal(text: String) {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
+        } else {
+            vibrator.vibrate(1000)
+        }
+        awakeAndSpeak(text)
+    }
+
     private fun awakeAndSpeak(text: String) {
         if (!wakeLock.isHeld) { wakeLock.acquire(15 * 1000L) }
         try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 250) } catch (e: Exception) {}
@@ -87,14 +106,14 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.getStringExtra("UPDATE_CODE")?.let { reloadTopic() }
+        intent?.getStringExtra("TEST_VOICE")?.let { awakeAndSpeak(it) }
+        intent?.getBooleanExtra("TRIGGER_SOS", false)?.let { if(it) enviarSOSaPC() }
+        
         createNotificationChannel()
         val notification = createPersistentNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(101, notification)
-        }
-        intent?.getStringExtra("TEST_VOICE")?.let { awakeAndSpeak(it) }
+        startForeground(101, notification)
+        
         return START_STICKY
     }
 
@@ -106,8 +125,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing v46.0")
-        .setContentText("Protección de Pagos Activa")
+        .setContentTitle("Importaciones Wing v50.0")
+        .setContentText("Enlace Dual Sync Activo")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setOngoing(true)
@@ -119,7 +138,6 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
         val fullContent = "$title | $text".trim()
-
         if (pkg.contains("yape") || pkg.contains("bcp") || pkg.contains("plin") || pkg.contains("interbank")) {
             processSmartContent(fullContent, pkg)
         }
@@ -132,9 +150,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
             val montoRaw = matcher.group(2)?.replace(",", "") ?: "0.00"
             val banco = if (pkg.contains("yape")) "YAPE" else "BCP"
             awakeAndSpeak("Pago de $montoRaw soles en $banco.")
-            serviceScope.launch(Dispatchers.IO) {
-                sendToMirror(banco, "Cliente", montoRaw)
-            }
+            serviceScope.launch(Dispatchers.IO) { sendToMirror(banco, "Cliente", montoRaw) }
             return true
         }
         return false
@@ -142,13 +158,11 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
     private fun sendToMirror(banco: String, nombre: String, monto: String) {
         try {
-            val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
+            val url = URL("https://ntfy.sh/$currentTopic")
             (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"; doOutput = true
                 setRequestProperty("Title", "PAGO $banco")
-                val json = JSONObject().apply {
-                    put("bank", banco); put("name", nombre); put("amt", monto); put("stark_log", "SYNC_OK")
-                }
+                val json = JSONObject().apply { put("bank", banco); put("name", nombre); put("amt", monto) }
                 OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                 responseCode; disconnect()
             }
@@ -158,7 +172,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     private fun enviarSOSaPC() {
         serviceScope.launch(Dispatchers.IO) {
             try {
-                val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
+                val url = URL("https://ntfy.sh/$currentTopic")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
                     setRequestProperty("Title", "ALERTA_SOS")
@@ -189,6 +203,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
     override fun onDestroy() {
         try { unregisterReceiver(internalReceiver) } catch (e: Exception) {}
+        pcListenerJob?.cancel()
         serviceJob.cancel()
         super.onDestroy()
     }

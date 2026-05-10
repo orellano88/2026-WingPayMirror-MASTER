@@ -43,11 +43,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var currentClientCode: String = "wingpay_stark_8502345704"
 
-    // --- ESCÁNER OPTIMIZADO v49.0 ---
     private val barcodeLauncher = registerForActivityResult(ScanContract()) { result: ScanIntentResult ->
-        if (result.contents != null) {
-            vincularCodigo(result.contents)
-        }
+        if (result.contents != null) { vincularCodigo(result.contents) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,7 +90,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 20f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v49.0 MULTI-MODE LINK"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v50.0 TOTAL DUAL SYNC"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -124,7 +121,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         terminalView = TextView(this).apply {
-            text = "[VÍNCULO]: Canal: $currentClientCode\n[SISTEMA]: Sensores e IA listos."; textSize = 11f
+            text = "[DUAL_SYNC]: Escuchando canal: $currentClientCode\n[SISTEMA]: Sensores v50.0 Activos."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
@@ -137,7 +134,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         mainLayout.addView(header); mainLayout.addView(termContainer); mainLayout.addView(btnLayout)
         
-        // --- BOTÓN MANUAL (NOVEDAD v49) ---
         val manualBtn = TextView(this).apply {
             text = "VINCULACIÓN MANUAL"; textSize = 10f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER
             setPadding(0, 40, 0, 0)
@@ -154,42 +150,32 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun openQRScanner() {
-        log("ESCÁNER: INICIANDO MOTOR ULTRA-FAST...")
-        val options = ScanOptions()
-        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-        options.setPrompt("Apunta al QR (Soporta Vertical/Horizontal)")
-        options.setCameraId(0)
-        options.setBeepEnabled(true)
-        options.setOrientationLocked(false) // PERMITE AMBAS ORIENTACIONES
-        options.setTimeout(30000)
+        val options = ScanOptions().apply {
+            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+            setPrompt("Apunta al QR de tu Estación PC")
+            setBeepEnabled(true)
+            setOrientationLocked(false)
+        }
         barcodeLauncher.launch(options)
     }
 
     private fun showManualEntryDialog() {
-        val input = EditText(this)
-        input.hint = "wingpay_client_..."
-        AlertDialog.Builder(this)
-            .setTitle("VINCULACIÓN MANUAL")
-            .setMessage("Ingrese el código de su PC:")
-            .setView(input)
-            .setPositiveButton("VINCULAR") { _, _ ->
-                val code = input.text.toString().trim()
-                if (code.isNotEmpty()) vincularCodigo(code)
-            }
-            .setNegativeButton("CANCELAR", null)
-            .show()
+        val input = EditText(this).apply { hint = "wingpay_client_..." }
+        AlertDialog.Builder(this).setTitle("VINCULACIÓN MANUAL").setView(input).setPositiveButton("VINCULAR") { _, _ ->
+            val code = input.text.toString().trim()
+            if (code.isNotEmpty()) vincularCodigo(code)
+        }.setNegativeButton("CANCELAR", null).show()
     }
 
     private fun vincularCodigo(code: String) {
-        log("VÍNCULO: VINCULANDO A $code")
+        log("VÍNCULO: SINCRONIZANDO CANAL $code")
         currentClientCode = code
         getSharedPreferences("STARK_PREFS", MODE_PRIVATE).edit().putString("CLIENT_CODE", code).apply()
         
-        val intent = Intent(this, StarkCaptureService::class.java)
-        intent.putExtra("UPDATE_CODE", code)
+        val intent = Intent(this, StarkCaptureService::class.java).apply { putExtra("UPDATE_CODE", code) }
         startService(intent)
         
-        log("SISTEMA: REINICIADO EN CANAL DINÁMICO")
+        log("DUAL_SYNC: ENLACE REESTABLECIDO")
         starkTotalTest() 
     }
 
@@ -207,7 +193,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit) = Button(this).apply {
         text = txt; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); textSize = 12f
-        layoutParams = LinearLayout.LayoutParams(0, 150, weight).apply { setMargins(5, 10, 5, 10) }
+        layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(5, 10, 5, 10) }
         background = getGlassDrawable(0x22FFFFFF.toInt()); setOnClickListener { 
             try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 100) } catch (e: Exception) {}
             action() 
@@ -229,10 +215,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_NEURAL_v49")
+        log("CMD: TEST_DUAL_SYNC_v50")
         sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
             setPackage(packageName)
-            putExtra("VOICE_CMD", "Vínculo exitoso. Canal dinámico v49 operativo.")
+            putExtra("VOICE_CMD", "Sistema v50 vinculado. El canal dual de SOS está listo.")
         })
         
         mainScope.launch(Dispatchers.IO) {
@@ -240,11 +226,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val url = URL("https://ntfy.sh/$currentClientCode")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
-                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "v49"); put("stark_log", "SCAN_SUCCESS") }
+                    val json = JSONObject().apply { put("bank", "WING"); put("amt", "v50"); put("stark_log", "v50_DUAL_OK") }
                     OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                     if (responseCode == 200) withContext(Dispatchers.Main) {
                         syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                        log("SYNC: PC_CONFIRMADA"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                        log("SYNC: PC_VINCULADA_OK"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
                     }
                     disconnect()
                 }
@@ -253,19 +239,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: ALERTA EN CANAL $currentClientCode")
+        log("SOS: LANZANDO SEÑAL A PC...")
         sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply { setPackage(packageName); putExtra("SOS_CMD", true) })
-        mainScope.launch(Dispatchers.IO) {
-            try {
-                val url = URL("https://ntfy.sh/$currentClientCode")
-                (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"; doOutput = true
-                    val json = JSONObject().apply { put("type", "SOS"); put("stark_log", "SIRENA_5S") }
-                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
-                    responseCode; disconnect()
-                }
-            } catch (e: Exception) {}
-        }
     }
 
     private fun startStatusMonitor() {
@@ -284,7 +259,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun checkInitialSystems() {
         if (!isNotificationServiceEnabled()) {
-            AlertDialog.Builder(this).setTitle("OMNI-LINK").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
+            AlertDialog.Builder(this).setTitle("DUAL SYNC").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
         }
     }
 
