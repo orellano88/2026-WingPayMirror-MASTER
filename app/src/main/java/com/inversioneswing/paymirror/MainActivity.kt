@@ -1,8 +1,8 @@
 package com.inversioneswing.paymirror
 
 import android.content.*
-import android.graphics.Color
-import android.graphics.Typeface
+import android.graphics.*
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.*
@@ -12,7 +12,6 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -44,34 +43,39 @@ class MainActivity : AppCompatActivity() {
         // --- CABECERA IMPORTACIONES WING ---
         val header = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 250)
-            setPadding(20, 20, 20, 20)
         }
 
         val logoIcon = ImageView(this).apply {
             id = View.generateViewId()
-            layoutParams = RelativeLayout.LayoutParams(120, 120).apply {
+            layoutParams = RelativeLayout.LayoutParams(150, 150).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_LEFT)
                 addRule(RelativeLayout.CENTER_VERTICAL)
             }
-            setImageResource(R.drawable.stark_logo)
-            alpha = 0.9f
+            // --- PROCESAMIENTO DE LOGO TRANSPARENTE EN TIEMPO REAL ---
+            try {
+                val original = BitmapFactory.decodeResource(resources, R.drawable.stark_logo)
+                val processed = makeTransparent(original, Color.WHITE)
+                setImageBitmap(processed)
+            } catch (e: Exception) {
+                setImageResource(R.drawable.stark_logo)
+            }
         }
 
         val titleContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT).apply {
                 addRule(RelativeLayout.RIGHT_OF, logoIcon.id)
-                leftMargin = 20
+                leftMargin = 30
                 addRule(RelativeLayout.CENTER_VERTICAL)
             }
             val title = TextView(this@MainActivity).apply {
                 text = "IMPORTACIONES WING"
-                textSize = 22f
+                textSize = 24f
                 setTextColor(0xFF00E5FF.toInt()) 
                 setTypeface(null, Typeface.BOLD)
             }
             val subTitle = TextView(this@MainActivity).apply {
-                text = "v41.0 DUAL SYNC EDITION"
+                text = "v42.0 PERFECCIÓN TOTAL"
                 textSize = 10f
                 setTextColor(Color.GRAY)
             }
@@ -92,12 +96,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         statusLED = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(35, 35).apply { setMargins(10, 0, 10, 0) }
+            layoutParams = LinearLayout.LayoutParams(40, 40).apply { setMargins(10, 0, 10, 0) }
             background = getCircleDrawable(Color.RED)
         }
         
         syncLED = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(35, 35).apply { setMargins(10, 0, 10, 0) }
+            layoutParams = LinearLayout.LayoutParams(40, 40).apply { setMargins(10, 0, 10, 0) }
             background = getCircleDrawable(Color.GRAY)
         }
 
@@ -105,16 +109,16 @@ class MainActivity : AppCompatActivity() {
         ledContainer.addView(syncLED)
         header.addView(ledContainer)
 
-        // --- STARK TERMINAL ---
+        // --- STARK TERMINAL (PANEL DE VIDRIO) ---
         val termContainer = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 500).apply { setMargins(0, 30, 0, 30) }
-            background = getGlassDrawable(0x55000000.toInt())
-            setPadding(25, 25, 25, 25)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 600).apply { setMargins(0, 40, 0, 40) }
+            background = getGlassDrawable(0x66000000.toInt())
+            setPadding(30, 30, 30, 30)
         }
 
         terminalView = TextView(this).apply {
-            text = "[SISTEMA]: Importaciones Wing v41.0 Online\n[PUENTE]: Escuchando estación de mando..."
-            textSize = 11f
+            text = "[SISTEMA]: Importaciones Wing v42.0 Online\n[IA]: JARVIS listo para la acción."
+            textSize = 12f
             setTextColor(0xFF00FF41.toInt()) 
             typeface = Typeface.MONOSPACE
         }
@@ -150,12 +154,33 @@ class MainActivity : AppCompatActivity() {
         updateUIRunner()
     }
 
+    // --- FUNCIÓN PARA QUITAR FONDO BLANCO AL LOGO ---
+    private fun makeTransparent(bit: Bitmap, transparentColor: Int): Bitmap {
+        val width = bit.width
+        val height = bit.height
+        val myBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val allpixels = IntArray(width * height)
+        bit.getPixels(allpixels, 0, width, 0, 0, width, height)
+        for (i in 0 until width * height) {
+            val r = Color.red(allpixels[i])
+            val g = Color.green(allpixels[i])
+            val b = Color.blue(allpixels[i])
+            // Si el pixel es casi blanco, lo hacemos transparente
+            if (r > 220 && g > 220 && b > 220) {
+                allpixels[i] = Color.TRANSPARENT
+            }
+        }
+        myBitmap.setPixels(allpixels, 0, width, 0, 0, width, height)
+        return myBitmap
+    }
+
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit): Button {
         return Button(this).apply {
             text = txt
-            layoutParams = LinearLayout.LayoutParams(0, 140, weight).apply { setMargins(8, 8, 8, 8) }
+            layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(10, 10, 10, 10) }
             background = getGlassDrawable(0x22FFFFFF.toInt())
             setTextColor(Color.WHITE)
+            setTypeface(null, Typeface.BOLD)
             setOnClickListener { action() }
         }
     }
@@ -163,8 +188,8 @@ class MainActivity : AppCompatActivity() {
     private fun getGlassDrawable(color: Int): GradientDrawable {
         return GradientDrawable().apply {
             setColor(color)
-            cornerRadius = 25f
-            setStroke(1, 0x44FFFFFF.toInt())
+            cornerRadius = 35f
+            setStroke(2, 0x55FFFFFF.toInt())
         }
     }
 
@@ -184,12 +209,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun starkTotalTest() {
-        log("INICIANDO_TEST_TOTAL_WING")
+        log("INICIANDO_TEST_V42")
+        // Enviar Intent de voz
         val intent = Intent(this, StarkCaptureService::class.java).apply {
             putExtra("TEST_VOICE", "Prueba exitosa. Hoy tendrás una buena venta que supera los 10 mil soles. ¡A por ello, jefe!")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
         
+        // Enviar Sincronización a PC
         Thread {
             try {
                 val topic = "wingpay_stark_8502345704"
@@ -197,7 +224,7 @@ class MainActivity : AppCompatActivity() {
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
                     val json = JSONObject().apply {
-                        put("bank", "WING"); put("name", "VENTA_RECORD"); put("amt", "10,000.00"); put("stark_log", "TEST_V41_OK")
+                        put("bank", "WING"); put("name", "VENTA_RECORD"); put("amt", "10,000.00"); put("stark_log", "TEST_V42_OK")
                     }
                     OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                     if (responseCode == 200) {
@@ -214,7 +241,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: Activando sirena de 5s en PC...")
+        log("SOS: Activando sirena en PC...")
         val intent = Intent(this, StarkCaptureService::class.java).apply { putExtra("TRIGGER_SOS", true) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
         
