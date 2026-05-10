@@ -42,12 +42,13 @@ class MessageBubble(BoxLayout):
         self.spacing = 5
         self.bind(minimum_height=self.setter('height'))
 
-# --- MOTOR PRINCIPAL: WING PAY SENTINEL v40.0 (STARK PERFECTED) ---
+# --- MOTOR PRINCIPAL: WING PAY SENTINEL v40.1 (STARK HOTFIX: AUDIO & GLOW) ---
 class WingPaySentinel(BoxLayout):
     status_ntfy = StringProperty("🔴") 
     status_pc = StringProperty("⚪")
     pulse_color = ListProperty([0, 0.8, 1, 0.5]) # Azul Stark
-    terminal_logs = ListProperty([]) # Para el 'Stark Terminal'
+    terminal_logs = ListProperty([]) 
+    is_speaking = BooleanProperty(False) # Nueva propiedad para el brillo extra
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -56,15 +57,15 @@ class WingPaySentinel(BoxLayout):
         self.start_stark_animations()
 
     def start_stark_animations(self):
-        # Animación dual: Pulso y Movimiento de Fondo
         Clock.schedule_interval(self._update_stark_fx, 0.05)
 
     def _update_stark_fx(self, dt):
         import math
         t = Clock.get_time()
-        # Pulso del núcleo
-        self.pulse_color[3] = (math.sin(t * 4) + 1) / 4 + 0.2
-        # El degradado se movería sutilmente mediante los vértices en el KV
+        # Pulso dinámico: si está hablando, brilla con más fuerza y velocidad
+        base_speed = 8 if self.is_speaking else 4
+        base_alpha = 0.5 if self.is_speaking else 0.2
+        self.pulse_color[3] = (math.sin(t * base_speed) + 1) / 4 + base_alpha
 
     def log_to_terminal(self, msg):
         time_str = datetime.now().strftime("%H:%M:%S")
@@ -80,8 +81,6 @@ class WingPaySentinel(BoxLayout):
                 Intent = autoclass('android.content.Intent')
                 Settings = autoclass('android.provider.Settings')
                 currentActivity = PythonActivity.mActivity
-                
-                # Secuencia de permisos Stark
                 currentActivity.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 Clock.schedule_once(lambda dt: currentActivity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)), 1)
         except: pass
@@ -123,12 +122,14 @@ class WingPaySentinel(BoxLayout):
         name = data.get("name", "Cliente")
         amt = data.get("amt", "0.00")
         details = f"S/ {amt} de {name}"
+        # En v40.1 activamos voz también para pagos remotos
         self.intercept_payment(bank, details, remote=True)
 
     def trigger_panic(self):
         if vibrator: vibrator.vibrate(0.5)
         self.add_message("🚨 PROTOCOLO DE PÁNICO ACTIVADO 🚨", is_user=True)
-        self.log_to_terminal("ALERTA: Pánico activado por el usuario.")
+        self.log_to_terminal("ALERTA: Pánico activado.")
+        self.speak_stark("Alerta de pánico detectada. Protocolo de seguridad activo.")
 
     def select_media(self):
         if filechooser: filechooser.open_file(on_selection=self._on_selection)
@@ -143,12 +144,14 @@ class WingPaySentinel(BoxLayout):
             text_input.text = ""
             self.add_message(msg, is_user=True)
             self.log_to_terminal(f"COMANDO_MANUAL: {msg}")
+            if msg.lower() == "test yape":
+                self.handle_remote_payment({"bank": "YAPE", "name": "TEST LOCAL", "amt": "1.00"})
 
     @mainthread
     def add_message(self, text, is_user=True, is_payment=False, bank="YAPE", source=""):
         if is_payment:
-            bg = [0.1, 0.4, 0.5, 0.4] # Vidrio Stark Azulado
-            border = [0, 0.8, 1, 0.8] # Borde Neón
+            bg = [0.1, 0.4, 0.5, 0.4] 
+            border = [0, 0.8, 1, 0.8] 
         else:
             bg = [1, 1, 1, 0.1]
             border = [1, 1, 1, 0.25]
@@ -174,9 +177,29 @@ class WingPaySentinel(BoxLayout):
 
     def intercept_payment(self, bank, details, remote=False):
         self.add_message(f"💎 PAGO {bank} CONFIRMADO\n{details}", is_user=False, is_payment=True, bank=bank)
+        
+        # Lógica de Voz Optimizada v40.1
+        monto = "un pago"
+        if "S/" in details:
+            parts = details.split("S/")
+            if len(parts) > 1: monto = f"S/ {parts[1].split()[0]}"
+        nombre = details.replace(f"por {monto}", "").replace(monto, "").replace("de", "").strip()
+        
+        speech = f"Atención. Pago recibido en {bank}. {nombre} envió {monto}."
+        self.speak_stark(speech)
+
         if not remote: 
             self.log_to_terminal(f"DETECTADO_LOCAL: {bank}")
-            threading.Thread(target=self.broadcast_to_mirror, args=(bank, "Cliente", "S/ 0.00")).start()
+            threading.Thread(target=self.broadcast_to_mirror, args=(bank, nombre, monto)).start()
+
+    def speak_stark(self, text):
+        if tts:
+            self.is_speaking = True
+            self.log_to_terminal("AUDIO_SENTINEL: ACTIVADO")
+            def task():
+                tts.speak(text)
+                Clock.schedule_once(lambda dt: setattr(self, 'is_speaking', False), 5)
+            threading.Thread(target=task).start()
 
     def broadcast_to_mirror(self, bank, nombre, monto):
         self.status_pc = "🔵"
@@ -207,7 +230,6 @@ class WingPayApp(App):
                     pos: self.pos
                     size: self.size
                     radius: [20, 20, 4, 20] if root.is_user else [20, 20, 20, 4]
-                # BORDE DE NEÓN GLOW
                 Color:
                     rgba: root.border_color
                 Line:
@@ -251,7 +273,6 @@ WingPaySentinel:
                 vertices: [self.x, self.y, 0, 0, 0.02, 0.1, 0.15, 1, self.right, self.y, 0, 0, 0.1, 0.2, 0.25, 1, self.right, self.top, 0, 0, 0.15, 0.25, 0.3, 1, self.x, self.top, 0, 0, 0.02, 0.1, 0.15, 1]
                 indices: [0, 1, 2, 3]
 
-        # CABECERA STARK PERFECTED
         BoxLayout:
             size_hint_y: None
             height: '100dp'
@@ -267,7 +288,7 @@ WingPaySentinel:
             BoxLayout:
                 orientation: 'vertical'
                 Label:
-                    text: "STARK OS v40.0"
+                    text: "STARK OS v40.1"
                     bold: True
                     font_size: '22sp'
                     color: 0, 0.8, 1, 1
@@ -309,7 +330,6 @@ WingPaySentinel:
                 background_color: 1, 0, 0, 0.4
                 on_release: root.trigger_panic()
 
-        # ÁREA DE LOGS (STARK TERMINAL) - COLAPSABLE/TRANSLÚCIDA
         BoxLayout:
             size_hint_y: 0.25
             orientation: 'vertical'
@@ -322,15 +342,13 @@ WingPaySentinel:
             ScrollView:
                 Label:
                     text: "\\n".join(root.terminal_logs)
-                    font_name: 'Roboto' # O Courier si estuviera disponible
                     font_size: '10sp'
-                    color: 0, 1, 0.4, 0.8 # Verde Terminal
+                    color: 0, 1, 0.4, 0.8
                     size_hint_y: None
                     height: self.texture_size[1]
                     text_size: self.width, None
                     padding: [10, 5]
 
-        # CHAT
         RecycleView:
             id: rv
             viewclass: 'MessageBubble'
@@ -343,7 +361,6 @@ WingPaySentinel:
                 spacing: '15dp'
                 padding: '15dp'
 
-        # BARRA DE ENTRADA GLASS NEÓN
         BoxLayout:
             size_hint_y: None
             height: '85dp'
@@ -363,7 +380,6 @@ WingPaySentinel:
                 background_color: 1, 1, 1, 0.05
                 foreground_color: 1, 1, 1, 1
                 font_size: '16sp'
-                padding: [15, 12]
                 on_text_validate: root.send_action(ti)
             
             Button:
@@ -373,6 +389,7 @@ WingPaySentinel:
                 background_color: 0, 0.6, 1, 0.5
                 on_release: root.send_action(ti)
 ''')
+
 
 
 
