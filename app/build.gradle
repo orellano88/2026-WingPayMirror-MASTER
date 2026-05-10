@@ -12,7 +12,7 @@ android {
         minSdk 26
         targetSdk 34
         versionCode 800
-        versionName "8.0-STARK-SYNC"
+        versionName "41.0-IMPORTACIONES-WING"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
