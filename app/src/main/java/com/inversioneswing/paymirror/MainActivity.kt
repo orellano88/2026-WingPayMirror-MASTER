@@ -1,5 +1,6 @@
 package com.inversioneswing.paymirror
 
+import android.animation.ArgbEvaluator
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.*
@@ -17,6 +18,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.LinearInterpolator
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -39,6 +41,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var header: RelativeLayout
     private lateinit var logoIcon: ImageView
     private lateinit var centralLogo: ImageView
+    private lateinit var mainLayout: LinearLayout
     private lateinit var sensorManager: SensorManager
     private var gravitySensor: Sensor? = null
     private var toneGenerator: ToneGenerator? = null
@@ -57,19 +60,17 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         try { toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100) } catch (e: Exception) {}
 
-        val starkBackground = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(0xFF0F2027.toInt(), 0xFF203A43.toInt(), 0xFF2C5364.toInt())
-        )
-        
-        val mainLayout = LinearLayout(this).apply {
+        // --- UI NEURAL LIQUID v57.0 ---
+        mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 40, 40, 40)
-            background = starkBackground
         }
 
+        // Fondo Dinámico Animado
+        animateNeuralBackground()
+
         header = RelativeLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 250)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 260)
         }
 
         logoIcon = ImageView(this).apply {
@@ -92,7 +93,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v56.2 TRIPLE SYNERGY"; textSize = 10f; setTextColor(0x88FFFFFF.toInt())
+                text = "v57.0 NEURAL LIQUID"; textSize = 10f; setTextColor(Color.WHITE); alpha = 0.6f
             })
         }
         
@@ -117,30 +118,31 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         ledContainer.addView(statusLED); ledContainer.addView(syncLED)
         header.addView(ledContainer)
 
+        // STARK TERMINAL GLASS
         val termContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 450).apply { setMargins(0, 30, 0, 30) }
-            background = getGlassDrawable(0x66000000.toInt()); setPadding(25, 25, 25, 25)
+            background = getGlassDrawable(0x77000000.toInt()); setPadding(25, 25, 25, 25)
         }
 
         terminalView = TextView(this).apply {
-            text = "[SYNERGY]: Triple IA (G+Q+G) Activa.\n[SYNC]: Canal: $currentClientCode"; textSize = 11f
+            text = "[LIQUID]: Motor Gráfico v57 Online\n[SYNC]: Tópico: $currentClientCode"; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
 
         val visualContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            gravity = Gravity.CENTER
         }
 
         centralLogo = ImageView(this).apply {
-            val lp = FrameLayout.LayoutParams(650, 650)
-            lp.gravity = Gravity.CENTER
+            val lp = FrameLayout.LayoutParams(700, 700).apply { gravity = Gravity.CENTER }
             layoutParams = lp
             setImageResource(R.drawable.stark_logo)
             alpha = 0.4f
         }
-        ObjectAnimator.ofFloat(centralLogo, "alpha", 0.2f, 0.5f).apply {
-            duration = 2500; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.REVERSE; interpolator = AccelerateDecelerateInterpolator(); start()
+        ObjectAnimator.ofFloat(centralLogo, "alpha", 0.2f, 0.6f).apply {
+            duration = 2000; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.REVERSE; start()
         }
         visualContainer.addView(centralLogo)
 
@@ -153,7 +155,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         mainLayout.addView(header); mainLayout.addView(termContainer); mainLayout.addView(visualContainer); mainLayout.addView(btnLayout)
         
         val manualBtn = TextView(this).apply {
-            text = "VINCULACIÓN MANUAL"; textSize = 10f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
+            text = "VINCULACIÓN MANUAL"; textSize = 10f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER
             setPadding(0, 20, 0, 20); setOnClickListener { showManualEntryDialog() }
         }
         mainLayout.addView(manualBtn)
@@ -164,6 +166,30 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
         checkInitialSystems()
         startStatusMonitor()
+    }
+
+    // NOVEDAD v57: Fondo Liquido que fluye
+    private fun animateNeuralBackground() {
+        val color1 = 0xFF0F2027.toInt()
+        val color2 = 0xFF2C5364.toInt()
+        val color3 = 0xFF203A43.toInt()
+
+        val gradient = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(color1, color2, color3))
+        mainLayout.background = gradient
+
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 10000
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            interpolator = LinearInterpolator()
+            addUpdateListener { anim ->
+                val fraction = anim.animatedFraction
+                val evaluator = ArgbEvaluator()
+                val midColor = evaluator.evaluate(fraction, color2, 0xFF1e3c72.toInt()) as Int
+                gradient.colors = intArrayOf(color1, midColor, color3)
+            }
+        }
+        animator.start()
     }
 
     private fun openQRScanner() {
@@ -185,7 +211,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun vincularCodigo(code: String) {
-        log("SISTEMA: VINCULANDO CANAL $code")
+        log("SISTEMA: SINCRONIZANDO $code")
         currentClientCode = code
         getSharedPreferences("STARK_PREFS", MODE_PRIVATE).edit().putString("CLIENT_CODE", code).apply()
         val intent = Intent(this, StarkCaptureService::class.java).apply { putExtra("UPDATE_CODE", code) }
@@ -205,7 +231,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun getGlassDrawable(color: Int) = GradientDrawable().apply {
-        setColor(color); cornerRadius = 35f; setStroke(2, 0x44FFFFFF.toInt())
+        setColor(color); cornerRadius = 35f; setStroke(3, 0x66FFFFFF.toInt())
     }
 
     private fun getCircleDrawable(color: Int) = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
@@ -219,8 +245,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_SYNERGY_v56")
-        StarkCaptureService.sendAudioCommand("Conexión exitosa. Hoy tendrás un ingreso superior a los 10 mil soles. ¡A por ello, jefe!")
+        log("CMD: TEST_LIQUID_v57")
+        StarkCaptureService.sendAudioCommand("Enlace v57 perfeccionado. Hoy recibirás un ingreso superior a los 10 mil soles. ¡Adelante, jefe!")
         
         mainScope.launch(Dispatchers.IO) {
             try {
@@ -228,12 +254,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"; conn.doOutput = true
                 val json = JSONObject().apply { 
-                    put("sender", "PHONE"); put("bank", "STARK"); put("name", "VÍNCULO_EXITOSO"); put("amt", "10,000")
+                    put("sender", "PHONE"); put("bank", "WING"); put("amt", "v57"); put("stark_log", "LIQUID_OK") 
                 }
                 OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
                 if (conn.responseCode == 200) withContext(Dispatchers.Main) {
                     syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                    log("SYNC_PC: CONFIRMADA"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                    log("SYNC_PC: ÉXITO"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
                 }
                 conn.disconnect()
             } catch (e: Exception) { withContext(Dispatchers.Main) { log("ERR_SYNC: ${e.message}") } }
@@ -241,8 +267,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: LANZANDO ALERTA A PC...")
-        StarkCaptureService.sendAudioCommand("¡Alerta de pánico activada!")
+        log("SOS: LANZANDO ALERTA MAESTRA...")
+        StarkCaptureService.sendAudioCommand("¡Protocolo de emergencia activado!")
         StarkCaptureService.triggerRemoteSOS()
     }
 
@@ -262,7 +288,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun checkInitialSystems() {
         if (!isNotificationServiceEnabled()) {
-            AlertDialog.Builder(this).setTitle("TRIPLE SYNERGY").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
+            AlertDialog.Builder(this).setTitle("ENLACE NEURAL").setMessage("JARVIS requiere el puente neural.").setPositiveButton("CONECTAR") { _, _ -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.show()
         }
     }
 
@@ -283,8 +309,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val x = event.values[0]; val y = event.values[1]
             header.translationX = -x * 2; header.translationY = y * 2
             logoIcon.rotationY = x * 4; logoIcon.rotationX = -y * 4
-            centralLogo.translationX = x * 12; centralLogo.translationY = -y * 12
-            centralLogo.rotationY = x * 18; centralLogo.rotationX = -y * 18
+            centralLogo.translationX = x * 15; centralLogo.translationY = -y * 15
+            centralLogo.rotationY = x * 20; centralLogo.rotationX = -y * 20
         }
     }
     override fun onAccuracyChanged(s: Sensor?, a: Int) {}
