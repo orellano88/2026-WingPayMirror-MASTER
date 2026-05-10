@@ -325,7 +325,7 @@ WingPaySentinel:
             BoxLayout:
                 orientation: 'vertical'
                 Label:
-                    text: "STARK OS v40.1"
+                    text: "STARK OS v40.3 PERFECTED"
                     bold: True
                     font_size: '22sp'
                     color: 0, 0.8, 1, 1
