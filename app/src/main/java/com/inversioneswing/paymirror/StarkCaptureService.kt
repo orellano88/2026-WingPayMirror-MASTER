@@ -46,13 +46,9 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WingPay:WakeLock")
         if (!wakeLock.isHeld) { wakeLock.acquire() }
-        
         try { toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100) } catch (e: Exception) {}
-
         registerReceiver(internalReceiver, IntentFilter("com.inversioneswing.STARK_INTERNAL_CMD"))
         tts = TextToSpeech(this, this)
-        
-        // Cargar tópico guardado e iniciar escucha de PC
         reloadTopic()
     }
 
@@ -76,8 +72,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                             if (json.has("message")) {
                                 val msg = json.getString("message")
                                 if (msg.contains("PC_SOS")) {
-                                    // --- REACCIÓN A SOS DE PC ---
-                                    dispararAlarmaLocal("¡Atención! Alerta de pánico recibida desde la estación de mando.")
+                                    dispararAlarmaLocal("¡Atención! Alerta de pánico desde la PC.")
                                 } else if (msg.contains("PC_CMD:")) {
                                     awakeAndSpeak(msg.replace("PC_CMD:", "").trim())
                                 }
@@ -93,9 +88,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
-        } else {
-            vibrator.vibrate(1000)
-        }
+        } else { vibrator.vibrate(1000) }
         awakeAndSpeak(text)
     }
 
@@ -109,11 +102,9 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         intent?.getStringExtra("UPDATE_CODE")?.let { reloadTopic() }
         intent?.getStringExtra("TEST_VOICE")?.let { awakeAndSpeak(it) }
         intent?.getBooleanExtra("TRIGGER_SOS", false)?.let { if(it) enviarSOSaPC() }
-        
         createNotificationChannel()
         val notification = createPersistentNotification()
         startForeground(101, notification)
-        
         return START_STICKY
     }
 
@@ -125,32 +116,63 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing v50.0")
-        .setContentText("Enlace Dual Sync Activo")
+        .setContentTitle("Importaciones Wing v51.0")
+        .setContentText("Intercepción de Pagos Activa")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
-        .setOngoing(true)
-        .build()
+        .setOngoing(true).build()
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pkg = sbn.packageName.lowercase()
         val extras = sbn.notification.extras
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-        val fullContent = "$title | $text".trim()
-        if (pkg.contains("yape") || pkg.contains("bcp") || pkg.contains("plin") || pkg.contains("interbank")) {
+        
+        // --- CAPTURA PROFUNDA REESTABLECIDA v51.0 ---
+        val title = extras.getCharSequence("android.title")?.toString() ?: ""
+        val text = extras.getCharSequence("android.text")?.toString() ?: ""
+        val bigText = extras.getCharSequence("android.bigText")?.toString() ?: ""
+        val fullContent = "$title | $text | $bigText".trim()
+
+        // Filtrar solo apps de interés (Yape, BCP, Plin, etc.)
+        if (pkg.contains("bcp") || pkg.contains("yape") || pkg.contains("plin") || pkg.contains("interbank") || pkg.contains("bbva") || pkg.contains("scotia")) {
+            Log.d("STARK", "Notificación Detectada: $pkg | $fullContent")
             processSmartContent(fullContent, pkg)
         }
     }
 
     private fun processSmartContent(content: String, pkg: String): Boolean {
+        // --- REGEX BLINDADO REESTABLECIDO ---
         val regex = Pattern.compile("(?i)(S\\\\s*/?\\\\s*\\\\.?)\\\\s*([\\\\d,]+\\\\.\\\\d{2}|[\\\\d,]+)")
         val matcher = regex.matcher(content)
+        
         if (matcher.find()) {
             val montoRaw = matcher.group(2)?.replace(",", "") ?: "0.00"
-            val banco = if (pkg.contains("yape")) "YAPE" else "BCP"
-            awakeAndSpeak("Pago de $montoRaw soles en $banco.")
-            serviceScope.launch(Dispatchers.IO) { sendToMirror(banco, "Cliente", montoRaw) }
+            val montoFull = matcher.group(0)!!
+            
+            // Limpieza de nombre (soporta tildes y eñes)
+            var nombreRaw = content.replace(montoFull, "", true)
+                .replace("¡Yapeaste!", "", true)
+                .replace("te envió", "", true)
+                .replace("te ha yapeado", "", true)
+                .replace("te pagó", "", true)
+                .replace(Regex("[^a-zA-Z\\\\sñÑáéíóúÁÉÍÓÚ]"), "")
+                .trim()
+            
+            if (nombreRaw.isEmpty()) nombreRaw = "un cliente"
+            val nombreLimpio = nombreRaw.split(" ").filter { it.length > 1 }.take(3).joinToString(" ").lowercase().capitalize()
+            
+            val banco = when {
+                pkg.contains("yape") -> "YAPE"
+                pkg.contains("bcp") -> "BCP"
+                pkg.contains("plin") -> "PLIN"
+                else -> "Banco"
+            }
+
+            awakeAndSpeak("Aviso de Pago. $banco. $nombreLimpio te envió $montoRaw soles.")
+            
+            serviceScope.launch(Dispatchers.IO) {
+                sendToMirror(banco, nombreLimpio, montoRaw)
+                sendToTelegram("💰 *PAGO RECIBIDO:* $banco\n👤 *CLIENTE:* $nombreLimpio\n💵 *MONTO:* S/ $montoRaw")
+            }
             return true
         }
         return false
@@ -162,7 +184,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
             (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"; doOutput = true
                 setRequestProperty("Title", "PAGO $banco")
-                val json = JSONObject().apply { put("bank", banco); put("name", nombre); put("amt", monto) }
+                val json = JSONObject().apply { put("bank", banco); put("name", nombre); put("amt", monto); put("stark_log", "PROCESADO_OK") }
                 OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                 responseCode; disconnect()
             }
@@ -199,6 +221,19 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                 while (iterator.hasNext()) { speak(iterator.next()); iterator.remove() }
             }
         }
+    }
+
+    private fun sendToTelegram(message: String) {
+        val token = "8629465941:AAH-5rwmNDTP_91UKZIRrJO_oZ24p1IcIQE"
+        val chatId = "8502345704"
+        try {
+            val url = URL("https://api.telegram.org/bot$token/sendMessage")
+            (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"; doOutput = true; setRequestProperty("Content-Type", "application/json")
+                OutputStreamWriter(outputStream).use { it.write(JSONObject().apply { put("chat_id", chatId); put("text", message); put("parse_mode", "Markdown") }.toString()) }
+                responseCode; disconnect()
+            }
+        } catch (e: Exception) {}
     }
 
     override fun onDestroy() {
