@@ -42,13 +42,28 @@ class MessageBubble(BoxLayout):
         self.spacing = 5
         self.bind(minimum_height=self.setter('height'))
 
-# --- MOTOR PRINCIPAL: WING PAY SENTINEL v40.1 (STARK HOTFIX: AUDIO & GLOW) ---
+# --- MOTOR PRINCIPAL: WING PAY SENTINEL v40.3 (STARK TOTAL TEST EDITION) ---
 class WingPaySentinel(BoxLayout):
     status_ntfy = StringProperty("🔴") 
     status_pc = StringProperty("⚪")
     pulse_color = ListProperty([0, 0.8, 1, 0.5]) # Azul Stark
     terminal_logs = ListProperty([]) 
-    is_speaking = BooleanProperty(False) # Nueva propiedad para el brillo extra
+    is_speaking = BooleanProperty(False) 
+
+    def stark_total_test(self):
+        # El mensaje que pediste, dinámico y motivador
+        mensaje = "¡Prueba Stark exitosa! Hoy tendrás una venta maestra superior a los 10 mil soles. ¡A por ello, jefe!"
+        self.log_to_terminal("INICIANDO_TEST_TOTAL_STARK")
+        
+        # 1. Mostrar en UI
+        self.handle_remote_payment({"bank": "STARK", "name": "VENTA MAESTRA", "amt": "10,000.00"})
+        
+        # 2. Hablar (Puente Nativo)
+        self.speak_stark(mensaje)
+        
+        # 3. Sincronizar con PC
+        self.broadcast_to_mirror("STARK", "VENTA_MAESTRA", "10000.00")
+        self.log_to_terminal("TEST_TOTAL: UI, AUDIO Y SYNC ACTIVADOS")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
