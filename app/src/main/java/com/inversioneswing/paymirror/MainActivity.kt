@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 20f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v54.0 NEURAL CORE EDITION"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v54.1 NEURAL CORE"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -122,18 +122,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         terminalView = TextView(this).apply {
-            text = "[SYNC]: Canal Activo: $currentClientCode\n[SISTEMA]: Enlace Neural v54.0 Online."; textSize = 11f
+            text = "[SYNC]: Canal Activo: $currentClientCode\n[SISTEMA]: Enlace Neural v54.1 Online."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
 
         val visualContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            gravity = Gravity.CENTER
         }
 
         centralLogo = ImageView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(600, 600).apply { gravity = Gravity.CENTER }
+            val lp = FrameLayout.LayoutParams(600, 600)
+            lp.gravity = Gravity.CENTER
+            layoutParams = lp
             setImageResource(R.drawable.stark_logo)
             alpha = 0.4f
         }
@@ -195,7 +196,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit) = Button(this).apply {
         text = txt; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); textSize = 12f
-        layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(5, 10, 5, 10) }
+        layoutParams = LinearLayout.LayoutParams(0, 150, weight).apply { setMargins(5, 10, 5, 10) }
         background = getGlassDrawable(0x22FFFFFF.toInt()); setOnClickListener { 
             try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 100) } catch (e: Exception) {}
             action() 
