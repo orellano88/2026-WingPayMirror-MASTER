@@ -12,7 +12,7 @@ android {
         minSdk 26
         targetSdk 34
         versionCode 800
-        versionName "56.0-TRIPLE-SYNERGY"
+        versionName "56.2-TRIPLE-SYNERGY"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

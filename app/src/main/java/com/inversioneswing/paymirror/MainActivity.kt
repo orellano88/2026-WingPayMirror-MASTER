@@ -77,7 +77,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             layoutParams = RelativeLayout.LayoutParams(160, 160).apply {
                 addRule(RelativeLayout.ALIGN_PARENT_LEFT); addRule(RelativeLayout.CENTER_VERTICAL)
             }
-            setImageResource(R.drawable.stark_logo)
+            try {
+                val original = BitmapFactory.decodeResource(resources, R.drawable.stark_logo)
+                setImageBitmap(makeTransparent(original))
+            } catch (e: Exception) { setImageResource(R.drawable.stark_logo) }
         }
 
         val titleContainer = LinearLayout(this).apply {
@@ -89,7 +92,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v56.0 TRIPLE SYNERGY"; textSize = 10f; setTextColor(0x88FFFFFF.toInt())
+                text = "v56.2 TRIPLE SYNERGY"; textSize = 10f; setTextColor(0x88FFFFFF.toInt())
             })
         }
         
@@ -127,11 +130,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         val visualContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            gravity = Gravity.CENTER
         }
 
         centralLogo = ImageView(this).apply {
-            val lp = FrameLayout.LayoutParams(650, 650).apply { gravity = Gravity.CENTER }
+            val lp = FrameLayout.LayoutParams(650, 650)
+            lp.gravity = Gravity.CENTER
             layoutParams = lp
             setImageResource(R.drawable.stark_logo)
             alpha = 0.4f
@@ -192,7 +195,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit) = Button(this).apply {
         text = txt; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); textSize = 12f
-        layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(6, 10, 6, 10) }
+        val params = LinearLayout.LayoutParams(0, 160, weight)
+        params.setMargins(6, 10, 6, 10)
+        layoutParams = params
         background = getGlassDrawable(0x22FFFFFF.toInt()); setOnClickListener { 
             try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 100) } catch (e: Exception) {}
             action() 
@@ -215,8 +220,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun starkTotalTest() {
         log("CMD: TEST_SYNERGY_v56")
-        // --- PUENTE DE MEMORIA DIRECTO (Companion Object Bypass EMUI) ---
-        StarkCaptureService.sendAudioCommand("Conexión exitosa. Hoy recibirás un ingreso superior a los 10 mil soles. ¡A por ello, jefe!")
+        StarkCaptureService.sendAudioCommand("Conexión exitosa. Hoy tendrás un ingreso superior a los 10 mil soles. ¡A por ello, jefe!")
         
         mainScope.launch(Dispatchers.IO) {
             try {
