@@ -19,6 +19,9 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanIntentResult
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -38,10 +41,23 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var gravitySensor: Sensor? = null
     private var toneGenerator: ToneGenerator? = null
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var currentClientCode: String = "wingpay_stark_8502345704"
+
+    private val barcodeLauncher = registerForActivityResult(ScanContract()) { result: ScanIntentResult ->
+        if (result.contents == null) {
+            log("ESCÁNER: CANCELADO")
+        } else {
+            vincularCodigo(result.contents)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Cargar código guardado
+        val prefs = getSharedPreferences("STARK_PREFS", MODE_PRIVATE)
+        currentClientCode = prefs.getString("CLIENT_CODE", currentClientCode)!!
+
         try { toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100) } catch (e: Exception) {}
 
         val starkBackground = GradientDrawable(
@@ -79,7 +95,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v47.0 OMNI-BRIDGE"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v48.0 SCAN & AUTO-LINK"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -111,13 +127,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         terminalView = TextView(this).apply {
-            text = "[SISTEMA]: Enlace Omni-Bridge v47.0 Online\n[SISTEMA]: Buzzer UI listo."; textSize = 11f
+            text = "[VÍNCULO]: Canal actual: $currentClientCode\n[SISTEMA]: Cámara Lista."; textSize = 11f
             setTextColor(0xFF00FF41.toInt()); typeface = Typeface.MONOSPACE
         }
         termContainer.addView(ScrollView(this).apply { addView(terminalView) })
 
-        val btnLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; weightSum = 3f }
+        val btnLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; weightSum = 4f }
         btnLayout.addView(createGlassButton("⚙", 1f) { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
+        btnLayout.addView(createGlassButton("📷 QR", 1f) { openQRScanner() })
         btnLayout.addView(createGlassButton("🧪 TEST", 1f) { starkTotalTest() })
         btnLayout.addView(createGlassButton("🚨 SOS", 1f) { enviarAlertaSOS() })
 
@@ -128,6 +145,33 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
         checkInitialSystems()
         startStatusMonitor()
+    }
+
+    private fun openQRScanner() {
+        log("ESCÁNER: ACTIVANDO CÁMARA...")
+        val options = ScanOptions()
+        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+        options.setPrompt("Apunta al QR de tu PC para vincular")
+        options.setCameraId(0)
+        options.setBeepEnabled(true)
+        options.setBarcodeImageEnabled(true)
+        options.setOrientationLocked(false)
+        barcodeLauncher.launch(options)
+    }
+
+    private fun vincularCodigo(code: String) {
+        log("ESCÁNER: CÓDIGO DETECTADO: $code")
+        currentClientCode = code
+        val prefs = getSharedPreferences("STARK_PREFS", MODE_PRIVATE)
+        prefs.edit().putString("CLIENT_CODE", code).apply()
+        
+        // Reiniciar servicio con nuevo código
+        val intent = Intent(this, StarkCaptureService::class.java)
+        intent.putExtra("UPDATE_CODE", code)
+        startService(intent)
+        
+        log("VÍNCULO: CANAL ACTUALIZADO CORRECTAMENTE")
+        starkTotalTest() // Prueba de confirmación
     }
 
     private fun makeTransparent(bit: Bitmap): Bitmap {
@@ -144,7 +188,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit) = Button(this).apply {
         text = txt; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
-        layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(10, 10, 10, 10) }
+        layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(5, 10, 5, 10) }
         background = getGlassDrawable(0x22FFFFFF.toInt()); setOnClickListener { 
             try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 150) } catch (e: Exception) {}
             action() 
@@ -166,27 +210,25 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_OMNI_BRIDGE")
-        // Enviar audio local
+        log("CMD: TEST_VÍNCULO_DINÁMICO")
         val intent = Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
             setPackage(packageName)
-            putExtra("VOICE_CMD", "Enlace Omni Bridge exitoso. Hoy tendrás una gran venta de 10 mil soles. JARVIS está listo.")
+            putExtra("VOICE_CMD", "Sistema vinculado exitosamente. Canal dinámico operativo.")
         }
         sendBroadcast(intent)
         
-        // Enviar a PC directamente desde la UI
         mainScope.launch(Dispatchers.IO) {
             try {
-                val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
+                val url = URL("https://ntfy.sh/$currentClientCode")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
                     val json = JSONObject().apply {
-                        put("bank", "WING"); put("name", "OMNI_BRIDGE"); put("amt", "10,000"); put("stark_log", "v47_OK")
+                        put("bank", "WING"); put("name", "QR_AUTO_LINK"); put("amt", "1.00"); put("stark_log", "v48_SCAN_OK")
                     }
                     OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                     if (responseCode == 200) withContext(Dispatchers.Main) {
                         syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                        log("SYNC: PC_CONFIRMADA"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                        log("SYNC: PC_VINCULADA_OK"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
                     }
                     disconnect()
                 }
@@ -195,19 +237,17 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: Activando Sirena en PC y Celular...")
-        // Alerta local
+        log("SOS: Sirena en canal $currentClientCode...")
         val intent = Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
             setPackage(packageName)
-            putExtra("VOICE_CMD", "¡Alerta de pánico! Sistema de emergencia activado.")
+            putExtra("VOICE_CMD", "¡Alerta! Sistema de pánico activado.")
             putExtra("SOS_CMD", true)
         }
         sendBroadcast(intent)
         
-        // Alerta remota directa
         mainScope.launch(Dispatchers.IO) {
             try {
-                val url = URL("https://ntfy.sh/wingpay_stark_8502345704")
+                val url = URL("https://ntfy.sh/$currentClientCode")
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
                     setRequestProperty("Title", "ALERTA_SOS")
