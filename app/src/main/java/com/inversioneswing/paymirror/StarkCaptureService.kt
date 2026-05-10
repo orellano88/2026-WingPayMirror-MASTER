@@ -3,6 +3,7 @@ package com.inversioneswing.paymirror
 import android.app.*
 import android.content.*
 import android.content.pm.ServiceInfo
+import android.graphics.Color
 import android.os.*
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
@@ -33,17 +34,10 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     private lateinit var wakeLock: PowerManager.WakeLock
     private var toneGenerator: ToneGenerator? = null
 
-    // --- RECEPTOR NEURAL v45.0 (EXPLICIT ONLY) ---
     private val internalReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val voiceMsg = intent?.getStringExtra("VOICE_CMD")
-            if (voiceMsg != null) {
-                Log.d("STARK", "Recibido VOICE_CMD Explicito: $voiceMsg")
-                awakeAndSpeak(voiceMsg)
-            }
-            if (intent?.getBooleanExtra("SOS_CMD", false) == true) {
-                enviarSOSaPC()
-            }
+            intent?.getStringExtra("VOICE_CMD")?.let { awakeAndSpeak(it) }
+            if (intent?.getBooleanExtra("SOS_CMD", false) == true) { enviarSOSaPC() }
         }
     }
 
@@ -53,12 +47,10 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WingPay:WakeLock")
         if (!wakeLock.isHeld) { wakeLock.acquire() }
         
-        // Inicializar Generador de Tonos (Buzzer Hardware)
         try {
             toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-        } catch (e: Exception) { Log.e("STARK", "Error ToneGen") }
+        } catch (e: Exception) { Log.e("STARK", "ToneGen Fail") }
 
-        // Registrar Receptor Neural con Exported flag para Android 14+
         val filter = IntentFilter("com.inversioneswing.STARK_INTERNAL_CMD")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(internalReceiver, filter, Context.RECEIVER_EXPORTED)
@@ -99,12 +91,11 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     private fun awakeAndSpeak(text: String) {
         if (!wakeLock.isHeld) { wakeLock.acquire(15 * 1000L) }
         
-        // 1. DISPARAR BEEP DE HARDWARE (Imposible de bloquear)
+        // --- BYPASS DE HARDWARE: Sonido inbloqueable ---
         try {
-            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 200)
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
         } catch (e: Exception) {}
 
-        // 2. HABLAR
         if (isTtsReady) {
             speak(text)
         } else {
@@ -120,17 +111,15 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         } else {
             startForeground(101, notification)
         }
-        
         intent?.getStringExtra("TEST_VOICE")?.let { awakeAndSpeak(it) }
         intent?.getBooleanExtra("TRIGGER_SOS", false)?.let { if(it) enviarSOSaPC() }
-        
         return START_STICKY
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(CHANNEL_ID, "WingPay Core", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Notificaciones de Pago Stark"
+                description = "Pagos Stark"
                 enableLights(true)
                 lightColor = Color.CYAN
             }
@@ -139,8 +128,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing v45.0")
-        .setContentText("Cerebro Neural en Linea")
+        .setContentTitle("Importaciones Wing v45.1")
+        .setContentText("Omni-Core en Linea")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setOngoing(true)
