@@ -37,8 +37,8 @@ class MainActivity : AppCompatActivity() {
         
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            padding = 40
-            background = background
+            setPadding(40, 40, 40, 40)
+            background = starkBackground
         }
 
         // --- CABECERA STARK ---
