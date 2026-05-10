@@ -88,7 +88,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 20f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v53.1 BI-DIRECTIONAL SYNC"; textSize = 10f; setTextColor(Color.GRAY)
+                text = "v53.2 MOTIVATIONAL SYNC"; textSize = 10f; setTextColor(Color.GRAY)
             })
         }
         
@@ -165,7 +165,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun openQRScanner() {
         val options = ScanOptions().apply {
             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            setPrompt("Escanea el QR de tu Estación")
+            setPrompt("Escanea el QR de tu Estación PC")
             setBeepEnabled(true)
             setOrientationLocked(false)
         }
@@ -186,12 +186,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         getSharedPreferences("STARK_PREFS", MODE_PRIVATE).edit().putString("CLIENT_CODE", code).apply()
         val intent = Intent(this, StarkCaptureService::class.java).apply { putExtra("UPDATE_CODE", code) }
         startService(intent)
+        log("DUAL_SYNC: ENLACE REESTABLECIDO")
         starkTotalTest() 
     }
 
     private fun createGlassButton(txt: String, weight: Float, action: () -> Unit) = Button(this).apply {
         text = txt; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD); textSize = 12f
-        layoutParams = LinearLayout.LayoutParams(0, 150, weight).apply { setMargins(5, 10, 5, 10) }
+        layoutParams = LinearLayout.LayoutParams(0, 160, weight).apply { setMargins(5, 10, 5, 10) }
         background = getGlassDrawable(0x22FFFFFF.toInt()); setOnClickListener { 
             try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 100) } catch (e: Exception) {}
             action() 
@@ -213,11 +214,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_BI_SYNC_v53")
-        // Audio local vía servicio
+        log("CMD: TEST_DE_CONEXIÓN")
+        // --- AUDIO MOTIVADOR v53.2 ---
+        val mensajeMotivador = "Conexión exitosa. Hoy recibirás un ingreso mayor a 10 mil soles. ¡A por ello, jefe!"
         sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply {
             setPackage(packageName)
-            putExtra("VOICE_CMD", "Enlace dinámico v53 exitoso. Sincronización bidireccional activa.")
+            putExtra("VOICE_CMD", mensajeMotivador)
         })
         
         mainScope.launch(Dispatchers.IO) {
@@ -229,13 +231,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val json = JSONObject().apply { 
                     put("sender", "PHONE")
                     put("bank", "WING")
-                    put("amt", "v53")
-                    put("stark_log", "v53_DYNAMIC_OK") 
+                    put("name", "MOTIVACIÓN_STARK")
+                    put("amt", "10,000")
+                    put("stark_log", "CONEXIÓN_EXITOSA") 
                 }
                 OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
                 if (conn.responseCode == 200) withContext(Dispatchers.Main) {
                     syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                    log("SYNC: PC_VINCULADA_OK"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
+                    log("SYNC: PC_CONFIRMADA"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
                 }
                 conn.disconnect()
             } catch (e: Exception) { withContext(Dispatchers.Main) { log("ERR_SYNC: ${e.message}") } }
@@ -243,8 +246,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun enviarAlertaSOS() {
-        log("SOS: LANZANDO SEÑAL A PC...")
-        sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply { setPackage(packageName); putExtra("SOS_CMD_LOCAL", true) })
+        log("SOS: LANZANDO SEÑAL CRÍTICA A PC...")
+        sendBroadcast(Intent("com.inversioneswing.STARK_INTERNAL_CMD").apply { 
+            setPackage(packageName); putExtra("SOS_CMD_LOCAL", true) 
+        })
+        // Envío directo para asegurar rapidez
+        mainScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://ntfy.sh/$currentClientCode")
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; doOutput = true
+                    setRequestProperty("Title", "ALERTA_SOS")
+                    val json = JSONObject().apply { 
+                        put("sender", "PHONE")
+                        put("type", "SOS")
+                        put("stark_log", "SIRENA_5S") 
+                    }
+                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
+                    responseCode; disconnect()
+                }
+            } catch (e: Exception) {}
+        }
     }
 
     private fun startStatusMonitor() {
