@@ -72,7 +72,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                             if (json.has("message")) {
                                 val msg = json.getString("message")
                                 if (msg.contains("PC_SOS")) {
-                                    dispararAlarmaLocal("¡Atención! Alerta de pánico desde la PC.")
+                                    dispararAlarmaLocal("¡Atención! Alerta de pánico recibida desde la estación de mando.")
                                 } else if (msg.contains("PC_CMD:")) {
                                     awakeAndSpeak(msg.replace("PC_CMD:", "").trim())
                                 }
@@ -116,8 +116,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing v51.0")
-        .setContentText("Intercepción de Pagos Activa")
+        .setContentTitle("Importaciones Wing v52.2")
+        .setContentText("Enlace Dual Sync Activo")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setOngoing(true).build()
@@ -125,53 +125,29 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pkg = sbn.packageName.lowercase()
         val extras = sbn.notification.extras
-        
-        // --- CAPTURA PROFUNDA REESTABLECIDA v51.0 ---
         val title = extras.getCharSequence("android.title")?.toString() ?: ""
         val text = extras.getCharSequence("android.text")?.toString() ?: ""
         val bigText = extras.getCharSequence("android.bigText")?.toString() ?: ""
         val fullContent = "$title | $text | $bigText".trim()
-
-        // Filtrar solo apps de interés (Yape, BCP, Plin, etc.)
-        if (pkg.contains("bcp") || pkg.contains("yape") || pkg.contains("plin") || pkg.contains("interbank") || pkg.contains("bbva") || pkg.contains("scotia")) {
-            Log.d("STARK", "Notificación Detectada: $pkg | $fullContent")
+        if (pkg.contains("bcp") || pkg.contains("yape") || pkg.contains("plin") || pkg.contains("interbank")) {
             processSmartContent(fullContent, pkg)
         }
     }
 
     private fun processSmartContent(content: String, pkg: String): Boolean {
-        // --- REGEX BLINDADO REESTABLECIDO ---
         val regex = Pattern.compile("(?i)(S\\\\s*/?\\\\s*\\\\.?)\\\\s*([\\\\d,]+\\\\.\\\\d{2}|[\\\\d,]+)")
         val matcher = regex.matcher(content)
-        
         if (matcher.find()) {
             val montoRaw = matcher.group(2)?.replace(",", "") ?: "0.00"
             val montoFull = matcher.group(0)!!
-            
-            // Limpieza de nombre (soporta tildes y eñes)
-            var nombreRaw = content.replace(montoFull, "", true)
-                .replace("¡Yapeaste!", "", true)
-                .replace("te envió", "", true)
-                .replace("te ha yapeado", "", true)
-                .replace("te pagó", "", true)
-                .replace(Regex("[^a-zA-Z\\\\sñÑáéíóúÁÉÍÓÚ]"), "")
-                .trim()
-            
+            var nombreRaw = content.replace(montoFull, "", true).replace(Regex("[^a-zA-Z\\\\s]"), "").trim()
             if (nombreRaw.isEmpty()) nombreRaw = "un cliente"
-            val nombreLimpio = nombreRaw.split(" ").filter { it.length > 1 }.take(3).joinToString(" ").lowercase().capitalize()
-            
-            val banco = when {
-                pkg.contains("yape") -> "YAPE"
-                pkg.contains("bcp") -> "BCP"
-                pkg.contains("plin") -> "PLIN"
-                else -> "Banco"
-            }
-
+            val nombreLimpio = nombreRaw.lowercase().capitalize()
+            val banco = if (pkg.contains("yape")) "YAPE" else "BCP"
             awakeAndSpeak("Aviso de Pago. $banco. $nombreLimpio te envió $montoRaw soles.")
-            
             serviceScope.launch(Dispatchers.IO) {
                 sendToMirror(banco, nombreLimpio, montoRaw)
-                sendToTelegram("💰 *PAGO RECIBIDO:* $banco\n👤 *CLIENTE:* $nombreLimpio\n💵 *MONTO:* S/ $montoRaw")
+                sendToTelegram("💰 *PAGO RECIBIDO:* $banco | $nombreLimpio | S/ $montoRaw")
             }
             return true
         }
@@ -180,11 +156,12 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
     private fun sendToMirror(banco: String, nombre: String, monto: String) {
         try {
+            val topic = "wingpay_stark_8502345704"
             val url = URL("https://ntfy.sh/$currentTopic")
             (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"; doOutput = true
                 setRequestProperty("Title", "PAGO $banco")
-                val json = JSONObject().apply { put("bank", banco); put("name", nombre); put("amt", monto); put("stark_log", "PROCESADO_OK") }
+                val json = JSONObject().apply { put("bank", banco); put("name", nombre); put("amt", monto) }
                 OutputStreamWriter(outputStream).use { it.write(json.toString()) }
                 responseCode; disconnect()
             }
@@ -238,8 +215,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
     override fun onDestroy() {
         try { unregisterReceiver(internalReceiver) } catch (e: Exception) {}
-        pcListenerJob?.cancel()
-        serviceJob.cancel()
+        serviceScope.cancel()
+        if (::tts.isInitialized) { tts.shutdown() }
         super.onDestroy()
     }
 }
