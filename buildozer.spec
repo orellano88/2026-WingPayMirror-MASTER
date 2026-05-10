@@ -4,7 +4,7 @@ package.name = wingpay_stark_sync
 package.domain = com.inversioneswing.stark
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
-version = 40.3
+version = 40.4
 requirements = python3,kivy,plyer,android,requests,certifi
 orientation = portrait
 osx.python_version = 3
@@ -17,3 +17,4 @@ android.sdk = 35
 android.ndk = 25b
 android.archs = arm64-v8a
 android.allow_backup = True
+
