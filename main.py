@@ -42,23 +42,15 @@ class MessageBubble(BoxLayout):
         self.spacing = 5
         self.bind(minimum_height=self.setter('height'))
 
-# --- MOTOR PRINCIPAL: WING PAY SENTINEL v37.7 (STARK-QWEN FINAL) ---
+# --- MOTOR PRINCIPAL: WING PAY SENTINEL v38.0 (OPTIMIZADO) ---
 class WingPaySentinel(BoxLayout):
+    status_ntfy = StringProperty("🔴") # Rojo: Desconectado, 🟢 Verde: OK
+    status_pc = StringProperty("⚪")   # Gris: Sin datos, 🔵 Azul: Sincronizado
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'vertical'
-        self.setup_persistence()
         self.start_omega_sync()
-
-    def setup_persistence(self):
-        # Mantiene el CPU encendido incluso con pantalla apagada
-        if vibrator:
-            try:
-                from plyer import wakelock
-                wakelock.acquire()
-                print("[SISTEMA] WakeLock Adquirido: El Centinela no dormirá.")
-            except Exception as e:
-                print(f"[ERROR] No se pudo activar WakeLock: {e}")
 
     def request_emui_permissions(self):
         try:
@@ -74,14 +66,13 @@ class WingPaySentinel(BoxLayout):
                 intent_notif = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                 currentActivity.startActivity(intent_notif)
                 
-                # Abrir Ignorar Optimizaciones de Batería
+                # Abrir Ignorar Optimizaciones de Batería (Sustituye al WakeLock agresivo)
                 intent_bat = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 currentActivity.startActivity(intent_bat)
         except Exception as e:
             self.add_message(f"Error abriendo permisos: {e}", is_user=False)
 
     def start_omega_sync(self):
-        # Iniciar Escucha Global (WhatsApp Web Style)
         threading.Thread(target=self.ntfy_listener_task, daemon=True).start()
 
     def ntfy_listener_task(self):
@@ -91,30 +82,31 @@ class WingPaySentinel(BoxLayout):
         
         while True:
             try:
-                with requests.get(url, stream=True, timeout=60) as r:
+                # El modo stream es eficiente porque el socket se queda esperando datos del servidor
+                with requests.get(url, stream=True, timeout=None) as r:
+                    self.status_ntfy = "🟢" # Conexión establecida
                     for line in r.iter_lines():
                         if line:
+                            self.status_pc = "🔵" # Actividad detectada
                             data = json.loads(line)
                             if "message" in data:
-                                # El mensaje viene como JSON string en el campo 'message' o como el cuerpo
                                 try:
                                     msg_data = json.loads(data["message"])
                                     self.handle_remote_payment(msg_data)
                                 except:
-                                    # Si no es JSON, es un mensaje de texto plano
                                     pass
+                            Clock.schedule_once(lambda dt: setattr(self, 'status_pc', "⚪"), 2)
             except Exception as e:
-                print(f"[SYNC] Error de conexión: {e}. Reintentando en 10s...")
-                Clock.tick() # Mantener vivo
+                self.status_ntfy = "🔴"
+                print(f"[SYNC] Error: {e}. Reintentando en 15s...")
                 import time
-                time.sleep(10)
+                time.sleep(15)
 
     @mainthread
     def handle_remote_payment(self, data):
         bank = data.get("bank", "YAPE")
         name = data.get("name", "Cliente")
         amt = data.get("amt", "0.00")
-        
         details = f"S/ {amt} de {name}"
         self.intercept_payment(bank, details, remote=True)
 
@@ -123,11 +115,9 @@ class WingPaySentinel(BoxLayout):
         self.add_message("🚨 ALARMA DE PÁNICO ACTIVADA 🚨", is_user=True)
 
     def select_media(self):
-        # Lógica para adjuntar imagen (Solicitada por el Usuario)
         if filechooser:
             filechooser.open_file(on_selection=self._on_selection)
         else:
-            # Simulación si no hay Plyer
             self.add_message("📎 Abriendo Galería...", is_user=True)
             Clock.schedule_once(lambda dt: self.add_message("Imagen seleccionada (Simulado)", is_user=True, source="atlas://data/images/defaulttheme/image-missing"), 1)
 
@@ -138,9 +128,8 @@ class WingPaySentinel(BoxLayout):
     def send_action(self, text_input):
         msg = text_input.text.strip()
         if msg:
-            text_input.text = "" # Limpieza instantánea
+            text_input.text = ""
             self.add_message(msg, is_user=True)
-            
             if "yape" in msg.lower() or "bcp" in msg.lower():
                 self.intercept_payment("YAPE" if "yape" in msg.lower() else "BCP", f"S/ 50.00 de Cliente {msg.upper()}")
 
@@ -185,29 +174,21 @@ class WingPaySentinel(BoxLayout):
         Clock.schedule_once(lambda dt: self.add_message(f"Foto: {os.path.basename(path)}", is_user=True, source=path), 0)
 
     def intercept_payment(self, bank, details, remote=False):
-        # 1. Registro Visual en la App
         self.add_message(f"💰 {bank} CONFIRMADO\n{details}", is_user=False, is_payment=True, bank=bank)
-        
-        # 2. Lector Inteligente
         monto = "un pago"
         if "S/" in details:
             parts = details.split("S/")
-            if len(parts) > 1:
-                monto = f"S/ {parts[1].split()[0]}"
+            if len(parts) > 1: monto = f"S/ {parts[1].split()[0]}"
         
         nombre = details.replace(f"por {monto}", "").replace(monto, "").replace("de", "").strip()
-        
-        # Frase exacta para el lector (MEJORADA)
         speech = f"Atención. Pago recibido en {bank}. {nombre} envió {monto}."
+        if tts: threading.Thread(target=lambda: tts.speak(speech)).start()
         
-        if tts: 
-            threading.Thread(target=lambda: tts.speak(speech)).start()
-        
-        # 3. Protocolo Omega Sync (Solo si es local)
         if not remote:
             threading.Thread(target=self.broadcast_to_mirror, args=(bank, nombre, monto)).start()
 
     def broadcast_to_mirror(self, bank, nombre, monto):
+        self.status_pc = "🔵"
         topic = "wingpay_stark_8502345704"
         url = f"https://ntfy.sh/{topic}"
         try:
@@ -216,6 +197,9 @@ class WingPaySentinel(BoxLayout):
             print(f"[SYNC] Sincronizado con espejo: {bank}")
         except Exception as e:
             print(f"[SYNC] Error al sincronizar: {e}")
+            self.status_pc = "🔴"
+        finally:
+            Clock.schedule_once(lambda dt: setattr(self, 'status_pc', "⚪"), 3)
 
 class WingPayApp(App):
     def build(self):
@@ -279,31 +263,45 @@ WingPaySentinel:
                 pos: self.pos
                 size: self.size
 
-        # CABECERA
+        # CABECERA STARK
         BoxLayout:
             size_hint_y: None
-            height: '70dp'
-            padding: '12dp'
+            height: '80dp'
+            padding: '10dp'
+            spacing: '10dp'
             canvas.before:
                 Color:
                     rgba: 0.04, 0.3, 0.35, 1
                 Rectangle:
                     pos: self.pos
                     size: self.size
-            Label:
-                text: "WING PAY SENTINEL v37.7"
-                bold: True
-                font_size: '18sp'
+            
+            BoxLayout:
+                orientation: 'vertical'
+                Label:
+                    text: "WING PAY SENTINEL v38.0"
+                    bold: True
+                    font_size: '16sp'
+                    halign: 'left'
+                    text_size: self.size
+                BoxLayout:
+                    spacing: '10dp'
+                    Label:
+                        text: f"RED: {root.status_ntfy}  PC: {root.status_pc}"
+                        font_size: '12sp'
+                        halign: 'left'
+                        text_size: self.size
+
             Button:
-                text: "🛠 PERMISOS"
+                text: "🛠"
                 size_hint_x: None
-                width: '100dp'
+                width: '50dp'
                 background_color: 0.8, 0.6, 0.1, 1
                 on_release: root.request_emui_permissions()
             Button:
-                text: "🧪 TEST"
+                text: "🧪"
                 size_hint_x: None
-                width: '70dp'
+                width: '50dp'
                 background_color: 0.1, 0.5, 0.8, 1
                 on_release: root.broadcast_to_mirror("YAPE", "PRUEBA STARK", "1.00")
             Button:
@@ -326,7 +324,7 @@ WingPaySentinel:
                 spacing: '12dp'
                 padding: '10dp'
 
-        # BARRA WHATSAPP (CON ADJUNTO)
+        # BARRA DE ENTRADA
         BoxLayout:
             size_hint_y: None
             height: '75dp'
@@ -362,6 +360,7 @@ WingPaySentinel:
                 background_color: 0.04, 0.6, 0.35, 1
                 on_release: root.send_action(ti)
 ''')
+
 
 if __name__ == '__main__':
     WingPayApp().run()
