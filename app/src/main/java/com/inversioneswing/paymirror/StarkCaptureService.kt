@@ -34,17 +34,10 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     private var toneGenerator: ToneGenerator? = null
     private var currentTopic: String = "wingpay_stark_8502345704"
 
-    // --- COMPANION OBJECT: EL PUENTE DE MEMORIA DIRECTA v56.0 ---
     companion object {
         private var activeInstance: StarkCaptureService? = null
-        
-        fun sendAudioCommand(text: String) {
-            activeInstance?.awakeAndSpeak(text)
-        }
-        
-        fun triggerRemoteSOS() {
-            activeInstance?.enviarSOSaPC()
-        }
+        fun sendAudioCommand(text: String) { activeInstance?.awakeAndSpeak(text) }
+        fun triggerRemoteSOS() { activeInstance?.enviarSOSaPC() }
     }
 
     override fun onCreate() {
@@ -53,7 +46,6 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WingPay:WakeLock")
         if (!wakeLock.isHeld) { wakeLock.acquire() }
-        
         try { toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100) } catch (e: Exception) {}
         tts = TextToSpeech(this, this)
         reloadTopic()
@@ -80,14 +72,11 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                                 val msgRaw = json.getString("message")
                                 try {
                                     val data = JSONObject(msgRaw)
-                                    // SOLO REACCIONAR SI EL SENDER ES PC (PROTECCIÓN DE BUCLE)
                                     if (data.optString("sender") == "PC") {
                                         val content = data.optString("message", "")
                                         if (content.contains("STARK_PC_SOS")) {
                                             dispararAlarmaLocal("¡ALERTA! Señal de emergencia recibida desde la PC.")
-                                        } else {
-                                            awakeAndSpeak(content)
-                                        }
+                                        } else { awakeAndSpeak(content) }
                                     }
                                 } catch (e: Exception) {
                                     if (msgRaw.contains("PC_SOS")) dispararAlarmaLocal("Alerta de pánico remota.")
@@ -105,30 +94,19 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
         } else { vibrator.vibrate(1000) }
-        
-        // RESPALDO ACÚSTICO: Tono de sistema
         try {
             val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             val r = RingtoneManager.getRingtone(applicationContext, notification)
             r.play()
             Handler(Looper.getMainLooper()).postDelayed({ r.stop() }, 3000)
         } catch (e: Exception) {}
-        
         awakeAndSpeak(text)
     }
 
     fun awakeAndSpeak(text: String) {
         if (!wakeLock.isHeld) { wakeLock.acquire(15 * 1000L) }
-        
-        // 1. BUZZER HARDWARE (CONFIRMACIÓN INICIAL)
         try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 250) } catch (e: Exception) {}
-        
-        // 2. HABLAR (SI ESTÁ LISTO)
-        if (isTtsReady) {
-            speak(text)
-        } else {
-            pendingMessages.add(text)
-        }
+        if (isTtsReady) speak(text) else pendingMessages.add(text)
     }
 
     private fun speak(text: String) {
@@ -140,7 +118,6 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.getStringExtra("UPDATE_CODE")?.let { reloadTopic() }
         intent?.getStringExtra("TEST_VOICE")?.let { awakeAndSpeak(it) }
-        
         createNotificationChannel()
         val notification = createPersistentNotification()
         startForeground(101, notification)
@@ -155,7 +132,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing v56.0")
+        .setContentTitle("Importaciones Wing v56.1")
         .setContentText("Neural Synergy Sync Activo")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -168,7 +145,6 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         val text = extras.getCharSequence("android.text")?.toString() ?: ""
         val bigText = extras.getCharSequence("android.bigText")?.toString() ?: ""
         val fullContent = "$title | $text | $bigText".trim()
-
         if (pkg.contains("yape") || pkg.contains("bcp") || pkg.contains("plin") || pkg.contains("interbank")) {
             processSmartContent(fullContent, pkg)
         }
@@ -183,7 +159,6 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
             var nombreRaw = content.replace(montoFull, "", true).replace(Regex("[^a-zA-Z\\\\sñÑáéíóúÁÉÍÓÚ]"), "").trim()
             val nombreLimpio = if (nombreRaw.isEmpty()) "un cliente" else nombreRaw.lowercase().capitalize()
             val banco = if (pkg.contains("yape")) "YAPE" else "BCP"
-            
             awakeAndSpeak("¡Aviso de Pago! $banco. $nombreLimpio te envió $montoRaw soles.")
             serviceScope.launch(Dispatchers.IO) { sendToMirror(banco, nombreLimpio, montoRaw) }
             return true
@@ -235,8 +210,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
     override fun onDestroy() {
         activeInstance = null
-        try { unregisterReceiver(internalReceiver) } catch (e: Exception) {}
         serviceScope.cancel()
+        if (::tts.isInitialized) { tts.shutdown() }
         super.onDestroy()
     }
 }
