@@ -81,13 +81,16 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                                 val msgRaw = json.getString("message")
                                 try {
                                     val data = JSONObject(msgRaw)
-                                    // REGLA: REACCIONAR SOLO SI VIENE DE LA PC
-                                    if (data.optString("sender") == "PC") {
-                                        val type = data.optString("type", "")
-                                        if (type == "SOS") {
+                                    // REGLA: REACCIONAR SOLO SI VIENE DE LA PC O CONTIENE SOS STARK
+                                    val sender = data.optString("sender", "")
+                                    val type = data.optString("type", "")
+                                    val msgContent = data.optString("message", "").uppercase()
+                                    
+                                    if (sender == "PC" || msgRaw.contains("STARK_PC_SOS")) {
+                                        if (type == "SOS" || msgContent.contains("SOS") || msgRaw.contains("STARK_PC_SOS")) {
                                             dispararAlarmaLocal("¡ALERTA CRÍTICA! SEÑAL DE PÁNICO RECIBIDA DESDE EL MANDO CENTRAL.")
                                         } else {
-                                            awakeAndSpeak(data.optString("message", ""))
+                                            awakeAndSpeak(data.optString("message", "Señal de mando recibida."))
                                         }
                                     }
                                 } catch (e: Exception) {}

@@ -169,7 +169,17 @@ class CyberHUD(FloatLayout):
         self.broadcast_to_mirror("SOS", "EMERGENCIA", "0", True)
 
     def scan_qr(self, *args):
-        self.terminal.text = ">_ CMD: START_ZBAR_SCANNER\n" + self.terminal.text
+        self.terminal.text = ">_ INITIATING_NATIVE_ZBAR_SCANNER...\n" + self.terminal.text
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            Intent = autoclass('android.content.Intent')
+            # Intent para abrir la actividad de escaneo nativa de ZXing/ZBar
+            scan_intent = Intent("com.google.zxing.client.android.SCAN")
+            scan_intent.putExtra("SCAN_MODE", "QR_CODE_MODE")
+            PythonActivity.mActivity.startActivityForResult(scan_intent, 0x123)
+        except Exception as e:
+            self.terminal.text = f">_ SCAN_ERROR: {str(e)}\n" + self.terminal.text
 
     def ntfy_listener(self):
         topic = "wingpay_client_A2ZQV4"
@@ -182,7 +192,16 @@ class CyberHUD(FloatLayout):
                             data = json.loads(line)
                             if "message" in data:
                                 try:
-                                    msg = json.loads(data["message"])
+                                    # PARSEO ROBUSTO PARA SEÑALES DE PC
+                                    msg_text = data["message"]
+                                    if "sender" in msg_text:
+                                        msg = json.loads(msg_text)
+                                    else:
+                                        # Retrocompatibilidad para mensajes de SOS directos de PC
+                                        if "SOS" in msg_text.upper() or "STARK_PC_SOS" in msg_text:
+                                            msg = {"type": "SOS", "sender": "PC"}
+                                        else: continue
+
                                     if msg.get("sender") == "CELULAR": continue # Evitar eco
                                     self.add_card(msg)
                                 except: pass
@@ -190,10 +209,11 @@ class CyberHUD(FloatLayout):
                 self.terminal.text = ">_ RED: RECONECTANDO...\n" + self.terminal.text
                 time.sleep(5)
 
-    @mainthread
-    def add_card(self, msg):
-        is_sos = msg.get("type") == "SOS"
-        card = NeonCard(
+    class WingPayCyberApp(App):
+    def build(self):
+        Window.title = "STARK OS v64.0 MASTER GOD"
+        return CyberHUD()
+
             bank=msg.get("bank", "YAPE"),
             name=msg.get("name", "Cliente Stark"),
             amt=msg.get("amt", "0.00"),
