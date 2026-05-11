@@ -203,7 +203,7 @@ class CyberHUD(FloatLayout):
 
 class WingPayCyberApp(App):
     def build(self):
-        Window.title = "STARK OS v60.1 MASTER GOD"
+        Window.title = "STARK OS v61.0 STEALTH MASTER"
         return CyberHUD()
 
 if __name__ == '__main__':

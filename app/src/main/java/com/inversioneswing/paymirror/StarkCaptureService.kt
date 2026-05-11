@@ -5,13 +5,10 @@ import android.content.*
 import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.media.AudioManager
-import android.media.RingtoneManager
-import android.media.ToneGenerator
 import android.os.*
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
@@ -22,23 +19,23 @@ import java.net.URL
 import java.util.*
 import java.util.regex.Pattern
 
-class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitListener {
+/* --- PROTOCOLO STARK v61.0: STEALTH MASTER ---
+   ESTADO: 100% SILENCIOSO (MODO SIGILO)
+   EL CELULAR NO EMITE SONIDOS NI VOZ. TODA LA ALERTA VIAJA A LA PC.
+*/
 
-    private val CHANNEL_ID = "WING_CORE_CHANNEL"
+class StarkCaptureService : NotificationListenerService() {
+
+    private val CHANNEL_ID = "WING_STEALTH_CHANNEL"
     private var pcListenerJob: Job? = null
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private lateinit var tts: TextToSpeech
-    private var isTtsReady = false
-    private val pendingMessages = Collections.synchronizedList(mutableListOf<String>())
     private lateinit var wakeLock: PowerManager.WakeLock
-    private var toneGenerator: ToneGenerator? = null
     
-    // --- TOPICO DINÁMICO CORREGIDO v57.1 ---
     private var currentTopic: String = "wingpay_client_A2ZQV4"
 
     companion object {
         private var activeInstance: StarkCaptureService? = null
-        fun sendAudioCommand(text: String) { activeInstance?.awakeAndSpeak(text) }
+        fun sendAudioCommand(text: String) { /* STEALTH: MUDO */ }
         fun triggerRemoteSOS() { activeInstance?.enviarSOSaPC() }
     }
 
@@ -46,17 +43,14 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         super.onCreate()
         activeInstance = this
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WingPay:WakeLock")
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WingPay:StealthLock")
         if (!wakeLock.isHeld) { wakeLock.acquire() }
         
-        try { toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100) } catch (e: Exception) {}
-        tts = TextToSpeech(this, this)
         reloadTopic()
     }
 
     private fun reloadTopic() {
         val prefs = getSharedPreferences("STARK_PREFS", MODE_PRIVATE)
-        // Forzar código detectado si no hay uno guardado
         currentTopic = prefs.getString("CLIENT_CODE", "wingpay_client_A2ZQV4")!!
         startPCListener()
     }
@@ -76,21 +70,11 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                                 val msgRaw = json.getString("message")
                                 try {
                                     val data = JSONObject(msgRaw)
-                                    // SOLO REACCIONAR SI EL SENDER ES PC (PROTECCIÓN DE BUCLE)
                                     if (data.optString("sender") == "PC") {
-                                        val content = data.optString("message", "")
-                                        if (content.contains("STARK_PC_SOS") || msgRaw.contains("PC_SOS")) {
-                                            dispararAlarmaLocal("¡ALERTA! Señal de emergencia recibida desde la PC.")
-                                        } else {
-                                            awakeAndSpeak(content)
-                                        }
+                                        // STEALTH: Solo log interno, el celular no habla
+                                        Log.d("STARK_STEALTH", "Data from PC: $msgRaw")
                                     }
-                                } catch (e: Exception) {
-                                    // Retrocompatibilidad con texto plano de SOS
-                                    if (msgRaw.contains("PC_SOS") || msgRaw.contains("SIRENA")) {
-                                        dispararAlarmaLocal("Alerta de pánico remota recibida.")
-                                    }
-                                }
+                                } catch (e: Exception) {}
                             }
                         }
                     }
@@ -99,37 +83,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         }
     }
 
-    private fun dispararAlarmaLocal(text: String) {
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
-        } else { vibrator.vibrate(1000) }
-        
-        try {
-            val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            val r = RingtoneManager.getRingtone(applicationContext, notification)
-            r.play()
-            Handler(Looper.getMainLooper()).postDelayed({ r.stop() }, 4000)
-        } catch (e: Exception) {}
-        
-        awakeAndSpeak(text)
-    }
-
-    fun awakeAndSpeak(text: String) {
-        if (!wakeLock.isHeld) { wakeLock.acquire(15 * 1000L) }
-        try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 250) } catch (e: Exception) {}
-        if (isTtsReady) {
-            val params = Bundle()
-            params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM)
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, "STARK_" + System.currentTimeMillis())
-        } else {
-            pendingMessages.add(text)
-        }
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.getStringExtra("UPDATE_CODE")?.let { reloadTopic() }
-        intent?.getStringExtra("TEST_VOICE")?.let { awakeAndSpeak(it) }
         
         createNotificationChannel()
         val notification = createPersistentNotification()
@@ -143,16 +98,17 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "WingPay Core", NotificationManager.IMPORTANCE_HIGH)
+            // IMPORTANCE_LOW: Para que no haga ruido ni vibre el sistema
+            val channel = NotificationChannel(CHANNEL_ID, "WingPay Stealth Mode", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing 2026")
-        .setContentText("Neural Master Synergy v57.2 Active")
+        .setContentTitle("Importaciones Wing Stealth")
+        .setContentText("Vigilancia Maestra 2026 - Modo Silencioso")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setPriority(NotificationCompat.PRIORITY_LOW)
         .setOngoing(true).build()
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -184,7 +140,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
                 else -> "BANCO"
             }
             
-            awakeAndSpeak("¡Aviso de Pago! $banco. $nombreLimpio te envió $montoRaw soles.")
+            // STEALTH: Solo enviamos a la PC, cero ruidos en celular
             serviceScope.launch(Dispatchers.IO) { sendToMirror(banco, nombreLimpio, montoRaw) }
             return true
         }
@@ -227,21 +183,9 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         }
     }
 
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            tts.language = Locale("es", "PE")
-            isTtsReady = true
-            synchronized(pendingMessages) {
-                val iterator = pendingMessages.iterator()
-                while (iterator.hasNext()) { awakeAndSpeak(iterator.next()); iterator.remove() }
-            }
-        }
-    }
-
     override fun onDestroy() {
         activeInstance = null
         serviceScope.cancel()
-        if (::tts.isInitialized) { tts.shutdown() }
         super.onDestroy()
     }
 }
