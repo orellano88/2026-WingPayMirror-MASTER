@@ -107,8 +107,7 @@ class CyberHUD(FloatLayout):
         header.add_widget(self.lbl_status)
         main.add_widget(header)
 
-        # Binary Stream Terminal
-        self.terminal = Label(text=">_ INITIALIZING_HOLOGRAPHIC_INTERFACE...\n>_ SCANNING_NETWORK_NODES...\n>_ LINK_ESTABLISHED: wingpay_client_A2ZQV4",
+        self.terminal = Label(text=">_ STARK_OS // v63.0_TOTAL_STEALTH\n>_ SENTINEL_MODE: SILENT_ACTIVE\n>_ AUDIO_DELEGATED_TO_PC: YES",
                              font_size='11sp', color=(0, 1, 0.5, 0.8), halign='left', valign='top', size_hint_y=None, height=dp(120), font_name='Roboto')
         self.terminal.bind(size=lambda *x: setattr(self.terminal, 'text_size', self.terminal.size))
         main.add_widget(self.terminal)
@@ -151,10 +150,10 @@ class CyberHUD(FloatLayout):
 
     def run_test(self, *args):
         self.terminal.text = ">_ CMD: TRIGGER_MASTER_TEST\n" + self.terminal.text
-        threading.Thread(target=self.broadcast_to_mirror, args=("STARK_OS", "PRUEBA_GOD_LEVEL", "777.00")).start()
+        threading.Thread(target=self.broadcast_to_mirror, args=("STARK_OS", "PRUEBA_MASTER_2026", "1.00")).start()
 
     def trigger_sos(self, *args):
-        self.terminal.text = ">_ ALERTA: SOS_BROADCAST_ACTIVE\n" + self.terminal.text
+        self.terminal.text = ">_ ALERTA: SOS_SILENT_MODE_SENT\n" + self.terminal.text
         threading.Thread(target=self.broadcast_to_mirror, args=("SOS", "EMERGENCIA", "0", True)).start()
 
     def scan_qr(self, *args):
@@ -195,7 +194,7 @@ class CyberHUD(FloatLayout):
 
 class WingPayCyberApp(App):
     def build(self):
-        Window.title = "STARK OS v62.1 MASTER GOD"
+        Window.title = "STARK OS v63.0 TOTAL STEALTH"
         return CyberHUD()
 
 if __name__ == '__main__':
