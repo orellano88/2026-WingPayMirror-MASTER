@@ -203,7 +203,7 @@ class CyberHUD(FloatLayout):
 
 class WingPayCyberApp(App):
     def build(self):
-        Window.title = "STARK OS v61.1 MASTER SYNERGY"
+        Window.title = "STARK OS v62.0 MASTER CROSS-ALARM"
         return CyberHUD()
 
 if __name__ == '__main__':
