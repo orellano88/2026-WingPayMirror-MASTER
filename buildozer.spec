@@ -1,5 +1,5 @@
 [app]
-title = WingPay OMEGA v8.0 STARK
+title = 2026 WingPay OMEGA v8.0 STARK
 package.name = wingpay_stark_sync
 package.domain = com.inversioneswing.stark
 source.dir = .
