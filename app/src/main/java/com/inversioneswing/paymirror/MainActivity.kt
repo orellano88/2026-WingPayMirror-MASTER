@@ -244,31 +244,22 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun starkTotalTest() {
-        log("CMD: TEST_LIQUID_v57")
-        StarkCaptureService.sendAudioCommand("Enlace v57 perfeccionado. Hoy recibirás un ingreso superior a los 10 mil soles. ¡Adelante, jefe!")
-        
-        mainScope.launch(Dispatchers.IO) {
-            try {
-                val url = URL("https://ntfy.sh/$currentClientCode")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"; conn.doOutput = true
-                val json = JSONObject().apply { 
-                    put("sender", "PHONE"); put("bank", "WING"); put("amt", "v57"); put("stark_log", "LIQUID_OK") 
-                }
-                OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
-                if (conn.responseCode == 200) withContext(Dispatchers.Main) {
-                    syncLED.background = getCircleDrawable(0xFF00E5FF.toInt())
-                    log("SYNC_PC: ÉXITO"); delay(3000); syncLED.background = getCircleDrawable(Color.GRAY)
-                }
-                conn.disconnect()
-            } catch (e: Exception) { withContext(Dispatchers.Main) { log("ERR_SYNC: ${e.message}") } }
+        log("CMD: TRIGGER_MASTER_TEST")
+        val intent = Intent(this, StarkCaptureService::class.java).apply {
+            putExtra("CMD_PAYMENT", true)
+            putExtra("BANK", "STARK_OS")
+            putExtra("NAME", "PRUEBA_NATIVA_MASTER")
+            putExtra("AMT", "777.00")
         }
+        startService(intent)
     }
 
     private fun enviarAlertaSOS() {
         log("SOS: LANZANDO ALERTA MAESTRA...")
-        StarkCaptureService.sendAudioCommand("¡Protocolo de emergencia activado!")
-        StarkCaptureService.triggerRemoteSOS()
+        val intent = Intent(this, StarkCaptureService::class.java).apply {
+            putExtra("CMD_SOS", true)
+        }
+        startService(intent)
     }
 
     private fun startStatusMonitor() {

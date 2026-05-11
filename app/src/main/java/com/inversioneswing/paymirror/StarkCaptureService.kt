@@ -106,6 +106,18 @@ class StarkCaptureService : NotificationListenerService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.getStringExtra("UPDATE_CODE")?.let { reloadTopic() }
         
+        // --- MANEJADOR DE SEÑALES UNIFICADO (ANTI-ECO) v63.2 ---
+        if (intent != null) {
+            if (intent.getBooleanExtra("CMD_SOS", false)) {
+                enviarSOSaPC()
+            } else if (intent.getBooleanExtra("CMD_PAYMENT", false)) {
+                val b = intent.getStringExtra("BANK") ?: "STARK"
+                val n = intent.getStringExtra("NAME") ?: "Cliente"
+                val a = intent.getStringExtra("AMT") ?: "0.00"
+                serviceScope.launch(Dispatchers.IO) { sendToMirror(b, n, a) }
+            }
+        }
+
         createNotificationChannel()
         val notification = createPersistentNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

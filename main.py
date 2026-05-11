@@ -132,29 +132,41 @@ class CyberHUD(FloatLayout):
         threading.Thread(target=self.ntfy_listener, daemon=True).start()
 
     def broadcast_to_mirror(self, bank, name, amt, is_sos=False):
-        topic = "wingpay_client_A2ZQV4"
-        url = f"https://ntfy.sh/{topic}"
-        payload = {
-            "bank": bank,
-            "name": name,
-            "amt": amt,
-            "sender": "CELULAR",
-            "type": "SOS" if is_sos else "PAYMENT",
-            "time": datetime.now().strftime("%H:%M:%S")
-        }
+        # --- PROTOCOLO v63.2: ELIMINADOR DE ECO ---
+        # Delegamos TODO el envío al núcleo nativo de Kotlin para evitar duplicados.
+        self.terminal.text = f">_ DELEGATING_TO_NATIVE_CORE: {bank}\n" + self.terminal.text
         try:
-            requests.post(url, data=json.dumps(payload), timeout=5)
-            self.terminal.text = f">_ SYNC_SENT: {bank} TO_PC\n" + self.terminal.text
-        except:
-            self.terminal.text = ">_ ERROR: PC_SYNC_FAILED\n" + self.terminal.text
+            from kivy.utils import platform
+            if platform == 'android':
+                from jnius import autoclass
+                PythonActivity = autoclass('org.kivy.android.PythonActivity')
+                Intent = autoclass('android.content.Intent')
+                service = autoclass('com.inversioneswing.paymirror.StarkCaptureService')
+                intent = Intent(PythonActivity.mActivity, service)
+                
+                if is_sos:
+                    intent.putExtra("CMD_SOS", True)
+                else:
+                    intent.putExtra("CMD_PAYMENT", True)
+                    intent.putExtra("BANK", bank)
+                    intent.putExtra("NAME", name)
+                    intent.putExtra("AMT", amt)
+                
+                PythonActivity.mActivity.startService(intent)
+                self.terminal.text = ">_ NATIVE_CORE: SIGNAL_FORWARDED\n" + self.terminal.text
+            else:
+                # Simulación para PC (no duplicar en testing)
+                self.terminal.text = ">_ DEV_MODE: LOCAL_SIGNAL_ONLY\n" + self.terminal.text
+        except Exception as e:
+            self.terminal.text = f">_ ERROR: {str(e)}\n" + self.terminal.text
 
     def run_test(self, *args):
         self.terminal.text = ">_ CMD: TRIGGER_MASTER_TEST\n" + self.terminal.text
-        threading.Thread(target=self.broadcast_to_mirror, args=("STARK_OS", "PRUEBA_MASTER_2026", "1.00")).start()
+        self.broadcast_to_mirror("STARK_OS", "PRUEBA_MASTER_2026", "1.00")
 
     def trigger_sos(self, *args):
-        self.terminal.text = ">_ ALERTA: SOS_SILENT_MODE_SENT\n" + self.terminal.text
-        threading.Thread(target=self.broadcast_to_mirror, args=("SOS", "EMERGENCIA", "0", True)).start()
+        self.terminal.text = ">_ ALERTA: SOS_REQUEST_SENT\n" + self.terminal.text
+        self.broadcast_to_mirror("SOS", "EMERGENCIA", "0", True)
 
     def scan_qr(self, *args):
         self.terminal.text = ">_ CMD: START_ZBAR_SCANNER\n" + self.terminal.text
@@ -194,7 +206,7 @@ class CyberHUD(FloatLayout):
 
 class WingPayCyberApp(App):
     def build(self):
-        Window.title = "STARK OS v63.0 TOTAL STEALTH"
+        Window.title = "STARK OS v63.2 MASTER GOD"
         return CyberHUD()
 
 if __name__ == '__main__':
