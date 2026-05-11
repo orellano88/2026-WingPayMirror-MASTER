@@ -35,8 +35,27 @@ class StarkCaptureService : NotificationListenerService() {
 
     companion object {
         private var activeInstance: StarkCaptureService? = null
+        fun sendAudioCommand(text: String) { /* STEALTH MODE: SILENT */ }
         fun triggerRemoteSOS() { activeInstance?.enviarSOSaPC() }
-        // Se elimina la función sendAudioCommand del celular
+    }
+
+    fun enviarSOSaPC() {
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://ntfy.sh/$currentTopic")
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; doOutput = true
+                    setRequestProperty("Title", "ALERTA_SOS")
+                    val json = JSONObject().apply { 
+                        put("sender", "PHONE")
+                        put("type", "SOS")
+                        put("message", "ALERTA_SOS_CRITICA") 
+                    }
+                    OutputStreamWriter(outputStream).use { it.write(json.toString()) }
+                    responseCode; disconnect()
+                }
+            } catch (e: Exception) {}
+        }
     }
 
     override fun onCreate() {
