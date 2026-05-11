@@ -10,16 +10,35 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.image import AsyncImage, Image
-from kivy.graphics import Color, RoundedRectangle, Ellipse, Line, Rectangle
+from kivy.graphics import Color, RoundedRectangle, Ellipse, Line, Rectangle, Rotate, PushMatrix, PopMatrix
 from kivy.clock import Clock, mainthread
 from kivy.core.window import Window
 from kivy.metrics import dp
 from kivy.properties import StringProperty, ListProperty, NumericProperty
 
-# --- PROTOCOLO STARK v59.0 PREMIUM MASTER ---
-# Inspirado en Mobile UI/UX GUI Set (Estilo Chat Comercial)
+# --- PROTOCOLO STARK v59.1 PREMIUM MASTER ---
+# Animación: Rotación Holográfica Vertical (Eje Y)
 
-Window.clearcolor = (0.95, 0.96, 0.98, 1) # Fondo gris muy claro profesional
+class RotatingLogo(Image):
+    angle = NumericProperty(0)
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.source = 'assets/icons/logo.png'
+        with self.canvas.before:
+            PushMatrix()
+            self.rot = Rotate(angle=0, axis=(0, 1, 0)) # Rotación vertical (moneda)
+        with self.canvas.after:
+            PopMatrix()
+        self.bind(pos=self.update_canvas, size=self.update_canvas)
+        Clock.schedule_interval(self.animate, 1/60.)
+
+    def update_canvas(self, *args):
+        self.rot.origin = self.center
+
+    def animate(self, dt):
+        self.angle += 1.5 # Velocidad elegante
+        self.rot.angle = self.angle
 
 class PremiumMessage(BoxLayout):
     def __init__(self, bank, name, amt, time, is_sos=False, **kwargs):
@@ -98,7 +117,12 @@ class PremiumMasterUI(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-        # Estructura Principal
+        # 1. Capa de Fondo (Holograma Central Rotatorio)
+        logo = RotatingLogo(size_hint=(None, None), size=(dp(240), dp(240)), 
+                           pos_hint={'center_x': .5, 'center_y': .55}, opacity=0.1)
+        self.add_widget(logo)
+
+        # 2. Estructura Principal
         main = BoxLayout(orientation='vertical')
 
         # Top Bar (Premium Header)
