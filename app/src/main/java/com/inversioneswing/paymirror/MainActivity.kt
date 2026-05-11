@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var gravitySensor: Sensor? = null
     private var toneGenerator: ToneGenerator? = null
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var currentClientCode: String = "wingpay_stark_8502345704"
+    private var currentClientCode: String = "wingpay_client_A2ZQV4"
 
     private val barcodeLauncher = registerForActivityResult(ScanContract()) { result: ScanIntentResult ->
         if (result.contents != null) { vincularCodigo(result.contents) }
@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         try { toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100) } catch (e: Exception) {}
 
-        // --- UI NEURAL LIQUID v57.0 ---
+        // --- UI NEURAL LIQUID v57.2 ---
         mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 40, 40, 40)
@@ -93,7 +93,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "v57.0 NEURAL LIQUID"; textSize = 10f; setTextColor(Color.WHITE); alpha = 0.6f
+                text = "v57.2 MASTER LIQUID"; textSize = 10f; setTextColor(Color.WHITE); alpha = 0.6f
             })
         }
         

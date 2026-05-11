@@ -149,8 +149,8 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Importaciones Wing v57.1")
-        .setContentText("Neural Synergy Sync Activo")
+        .setContentTitle("Importaciones Wing v57.2")
+        .setContentText("Neural Master Synergy Sync Activo")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setOngoing(true).build()
@@ -176,7 +176,13 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
             val montoFull = matcher.group(0)!!
             var nombreRaw = content.replace(montoFull, "", true).replace(Regex("[^a-zA-Z\\\\sñÑáéíóúÁÉÍÓÚ]"), "").trim()
             val nombreLimpio = if (nombreRaw.isEmpty()) "un cliente" else nombreRaw.lowercase().capitalize()
-            val banco = if (pkg.contains("yape")) "YAPE" else "BCP"
+            val banco = when {
+                pkg.contains("yape") -> "YAPE"
+                pkg.contains("plin") -> "PLIN"
+                pkg.contains("interbank") -> "INTERBANK"
+                pkg.contains("bcp") -> "BCP"
+                else -> "BANCO"
+            }
             
             awakeAndSpeak("¡Aviso de Pago! $banco. $nombreLimpio te envió $montoRaw soles.")
             serviceScope.launch(Dispatchers.IO) { sendToMirror(banco, nombreLimpio, montoRaw) }
