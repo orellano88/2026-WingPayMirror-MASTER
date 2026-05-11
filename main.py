@@ -130,9 +130,9 @@ class CyberHUD(FloatLayout):
 
         # Botonera Cyber
         btns = BoxLayout(size_hint_y=None, height=dp(60), spacing=dp(10))
-        btns.add_widget(Button(text="[ SCAN_QR ]", background_color=(0, 0.5, 0.5, 0.5), color=(0, 1, 1, 1)))
-        btns.add_widget(Button(text="[ TEST_SYS ]", background_color=(0, 0.5, 0, 0.5), color=(0, 1, 0.5, 1), on_release=self.mock_payment))
-        btns.add_widget(Button(text="[ ALERT_SOS ]", background_color=(0.5, 0, 0, 0.5), color=(1, 0, 0, 1)))
+        btns.add_widget(Button(text="[ SCAN_QR ]", background_color=(0, 0.5, 0.5, 0.5), color=(0, 1, 1, 1), on_release=self.scan_qr))
+        btns.add_widget(Button(text="[ TEST_SYS ]", background_color=(0, 0.5, 0, 0.5), color=(0, 1, 0.5, 1), on_release=self.run_test))
+        btns.add_widget(Button(text="[ ALERT_SOS ]", background_color=(0.5, 0, 0, 0.5), color=(1, 0, 0, 1), on_release=self.trigger_sos))
         main.add_widget(btns)
 
         self.add_widget(main)
@@ -140,37 +140,70 @@ class CyberHUD(FloatLayout):
         # Listener de Red
         threading.Thread(target=self.ntfy_listener, daemon=True).start()
 
+    def broadcast_to_mirror(self, bank, name, amt, is_sos=False):
+        topic = "wingpay_client_A2ZQV4"
+        url = f"https://ntfy.sh/{topic}"
+        payload = {
+            "bank": bank,
+            "name": name,
+            "amt": amt,
+            "sender": "CELULAR",
+            "type": "SOS" if is_sos else "PAYMENT",
+            "time": datetime.now().strftime("%H:%M:%S")
+        }
+        try:
+            requests.post(url, data=json.dumps(payload), timeout=5)
+            self.terminal.text = f">_ SYNC_SENT: {bank} TO_PC\n" + self.terminal.text
+        except:
+            self.terminal.text = ">_ ERROR: PC_SYNC_FAILED\n" + self.terminal.text
+
+    def run_test(self, *args):
+        self.terminal.text = ">_ CMD: TRIGGER_MASTER_TEST\n" + self.terminal.text
+        threading.Thread(target=self.broadcast_to_mirror, args=("STARK_OS", "PRUEBA_GOD_LEVEL", "777.00")).start()
+
+    def trigger_sos(self, *args):
+        self.terminal.text = ">_ ALERTA: SOS_BROADCAST_ACTIVE\n" + self.terminal.text
+        threading.Thread(target=self.broadcast_to_mirror, args=("SOS", "EMERGENCIA", "0", True)).start()
+
+    def scan_qr(self, *args):
+        self.terminal.text = ">_ CMD: START_ZBAR_SCANNER\n" + self.terminal.text
+
     def ntfy_listener(self):
         topic = "wingpay_client_A2ZQV4"
         url = f"https://ntfy.sh/{topic}/json"
         while True:
             try:
-                with requests.get(url, stream=True) as r:
+                with requests.get(url, stream=True, timeout=None) as r:
                     for line in r.iter_lines():
                         if line:
                             data = json.loads(line)
                             if "message" in data:
-                                msg = json.loads(data["message"])
-                                if msg.get("sender") == "CELULAR": continue
-                                self.add_card(msg)
-            except: time.sleep(5)
+                                try:
+                                    msg = json.loads(data["message"])
+                                    if msg.get("sender") == "CELULAR": continue # Evitar eco
+                                    self.add_card(msg)
+                                except: pass
+            except: 
+                self.terminal.text = ">_ RED: RECONECTANDO...\n" + self.terminal.text
+                time.sleep(5)
 
     @mainthread
     def add_card(self, msg):
+        is_sos = msg.get("type") == "SOS"
         card = NeonCard(
             bank=msg.get("bank", "YAPE"),
             name=msg.get("name", "Cliente Stark"),
             amt=msg.get("amt", "0.00"),
-            time=datetime.now().strftime("%H:%M")
+            time=datetime.now().strftime("%H:%M"),
+            is_sos=is_sos
         )
         self.payment_list.add_widget(card, index=len(self.payment_list.children))
-        self.terminal.text = f">_ DATA_RECEIVED: {msg.get('bank')} from {msg.get('name')}\n" + self.terminal.text
-
-    def mock_payment(self, *args):
-        self.add_card({"bank":"YAPE", "name":"Wilson Orellano", "amt":"888.00"})
+        icon = "🚨" if is_sos else "💰"
+        self.terminal.text = f">_ DATA_RECEIVED: {icon} {msg.get('bank')} FROM_PC\n" + self.terminal.text
 
 class WingPayCyberApp(App):
     def build(self):
+        Window.title = "STARK OS v60.1 MASTER GOD"
         return CyberHUD()
 
 if __name__ == '__main__':
