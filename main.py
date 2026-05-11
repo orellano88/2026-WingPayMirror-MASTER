@@ -2,255 +2,196 @@ import os
 import threading
 import requests
 import json
-import math
 from datetime import datetime
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.textinput import TextInput
+from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.uix.widget import Widget
+from kivy.uix.image import AsyncImage, Image
+from kivy.graphics import Color, RoundedRectangle, Ellipse, Line, Rectangle
 from kivy.clock import Clock, mainthread
 from kivy.core.window import Window
-from kivy.graphics import Color, RoundedRectangle, RenderContext, Rectangle, BindTexture, Fbo, ClearColor, ClearBuffers, Scale, Translate, SmoothLine
-from kivy.properties import StringProperty, ListProperty, BooleanProperty, NumericProperty, ObjectProperty
-from kivy.lang import Builder
 from kivy.metrics import dp
+from kivy.properties import StringProperty, ListProperty, NumericProperty
 
-# --- PROTOCOLO STARK v58.0 HOLOGRAPHIC MASTER ---
+# --- PROTOCOLO STARK v59.0 PREMIUM MASTER ---
+# Inspirado en Mobile UI/UX GUI Set (Estilo Chat Comercial)
 
-# SHADERS: DIFUMINADO GAUSSIANO (FROSTED GLASS)
-vertical_blur_shader = """
-#ifdef GL_ES
-    precision lowp float;
-#endif
-varying vec4 frag_color;
-varying vec2 tex_coord0;
-uniform sampler2D texture0;
-uniform float mean_res;
-uniform float blur_size;
+Window.clearcolor = (0.95, 0.96, 0.98, 1) # Fondo gris muy claro profesional
 
-void main (void){
-    float dt = ((blur_size / 2.0) * 1.0 / mean_res);
-    vec4 sum = vec4(0.0);
-    sum += texture2D(texture0, vec2(tex_coord0.x, tex_coord0.y+3.0*dt))*0.077;
-    sum += texture2D(texture0, vec2(tex_coord0.x, tex_coord0.y+2.0*dt))*0.077;
-    sum += texture2D(texture0, vec2(tex_coord0.x, tex_coord0.y))*0.077;
-    sum += texture2D(texture0, vec2(tex_coord0.x, tex_coord0.y-2.0*dt))*0.077;
-    sum += texture2D(texture0, vec2(tex_coord0.x, tex_coord0.y-3.0*dt))*0.077;
-    gl_FragColor = frag_color * vec4(sum.rgba);
-}
-"""
+class PremiumMessage(BoxLayout):
+    def __init__(self, bank, name, amt, time, is_sos=False, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'horizontal'
+        self.size_hint_y = None
+        self.height = dp(80)
+        self.padding = [dp(15), dp(5), dp(15), dp(5)]
+        self.spacing = dp(12)
 
-horizontal_blur_shader = """
-#ifdef GL_ES
-    precision lowp float;
-#endif
-varying vec4 frag_color;
-varying vec2 tex_coord0;
-uniform sampler2D texture0;
-uniform float mean_res;
-uniform float blur_size;
+        # Determinar colores por banco
+        if is_sos:
+            bg_color = (1, 0.9, 0.9, 1)
+            border_color = (1, 0.2, 0.2, 1)
+            icon_color = (1, 0, 0, 1)
+            logo_char = "🚨"
+        elif bank == "YAPE":
+            bg_color = (0.9, 1, 0.9, 1)
+            border_color = (0.2, 0.8, 0.4, 1)
+            icon_color = (0.4, 0.0, 0.5, 1) # Morado Yape
+            logo_char = "Y"
+        else: # BCP/PLIN/Otros
+            bg_color = (0.9, 0.95, 1, 1)
+            border_color = (0.1, 0.5, 0.9, 1)
+            icon_color = (1, 0.5, 0, 1) # Naranja BCP
+            logo_char = "B"
 
-void main (void){
-    float dt = (blur_size / 2.0) * 1.0 / mean_res;
-    vec4 sum = vec4(0.0);
-    sum += texture2D(texture0, vec2(tex_coord0.x+3.0*dt, tex_coord0.y))*0.077;
-    sum += texture2D(texture0, vec2(tex_coord0.x+2.0*dt, tex_coord0.y))*0.077;
-    sum += texture2D(texture0, vec2(tex_coord0.x, tex_coord0.y))*0.077;
-    sum += texture2D(texture0, vec2(tex_coord0.x-2.0*dt, tex_coord0.y))*0.077;
-    sum += texture2D(texture0, vec2(tex_coord0.x-3.0*dt, tex_coord0.y))*0.077;
-    gl_FragColor = frag_color * vec4(sum.rgba);
-}
-"""
+        # 1. Avatar Circular del Banco
+        avatar_box = FloatLayout(size_hint=(None, None), size=(dp(50), dp(50)))
+        with avatar_box.canvas.before:
+            Color(*border_color, mode='rgba')
+            self.avatar_circle = Ellipse(pos=(0, 0), size=(dp(50), dp(50)))
+            Color(1, 1, 1, 1)
+            self.avatar_inner = Ellipse(pos=(dp(2), dp(2)), size=(dp(46), dp(46)))
+        
+        avatar_box.add_widget(Label(text=logo_char, bold=True, font_size='20sp', 
+                                   color=icon_color, pos_hint={'center_x': .5, 'center_y': .5}))
+        self.add_widget(avatar_box)
 
-# SHADER: LIQUID GRADIENT BACKGROUND
-liquid_bg_shader = """
-#ifdef GL_ES
-    precision highp float;
-#endif
-varying vec2 tex_coord0;
-uniform float time;
-uniform vec2 resolution;
+        # 2. Burbuja de Mensaje (Estilo Chat Premium)
+        content_box = BoxLayout(orientation='vertical', padding=[dp(15), dp(10)])
+        with content_box.canvas.before:
+            Color(*bg_color)
+            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[(0, 20), (20, 20), (20, 20), (20, 20)])
+            Color(0.8, 0.8, 0.8, 0.2) # Sombra suave
+            self.line = Line(rounded_rectangle=(self.x, self.y, self.width, self.height, 20), width=1.1)
 
-void main() {
-    vec2 uv = tex_coord0;
-    vec3 color1 = vec3(0.05, 0.1, 0.15); // Deep Stark Blue
-    vec3 color2 = vec3(0.1, 0.3, 0.4);   // Neural Cyan
-    
-    float wave = sin(uv.x * 3.0 + time * 0.5) * cos(uv.y * 2.0 + time * 0.3);
-    vec3 color = mix(color1, color2, uv.y + wave * 0.2);
-    
-    gl_FragColor = vec4(color, 1.0);
-}
-"""
+        self.bind(pos=self.update_graphics, size=self.update_rect)
 
-class FrostedPanel(FloatLayout):
-    background = ObjectProperty(None)
-    blur_size = NumericProperty(15)
-    border_radius = ListProperty([20, 20, 20, 20])
+        title_label = Label(text=f"{name}", bold=True, font_size='14sp', color=(0.1, 0.1, 0.2, 1), 
+                           halign='left', size_hint_x=1)
+        title_label.bind(size=title_label.setter('text_size'))
+        content_box.add_widget(title_label)
 
+        msg_label = Label(text=f"Recibió S/ {amt} en {bank}", font_size='13sp', color=(0.3, 0.3, 0.4, 1),
+                         halign='left', size_hint_x=1)
+        msg_label.bind(size=msg_label.setter('text_size'))
+        content_box.add_widget(msg_label)
+
+        self.add_widget(content_box)
+
+        # 3. Hora
+        time_label = Label(text=time, font_size='10sp', color=(0.6, 0.6, 0.7, 1), size_hint_x=None, width=dp(40))
+        self.add_widget(time_label)
+
+    def update_rect(self, instance, value):
+        self.rect.size = instance.size
+        self.line.rounded_rectangle = (self.x, self.y, self.width, self.height, 20)
+
+    def update_graphics(self, instance, value):
+        self.rect.pos = instance.pos
+        self.avatar_circle.pos = (self.x + dp(15), self.y + dp(15))
+        self.avatar_inner.pos = (self.x + dp(17), self.y + dp(17))
+
+class PremiumMasterUI(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.canvas = RenderContext(use_parent_projection=True, use_parent_modelview=True)
-        # Simplificación para performance en móvil
-        self.h_fbo = Fbo(size=(256, 256), fs=horizontal_blur_shader)
-        self.v_fbo = Fbo(size=(256, 256), fs=vertical_blur_shader)
         
-        with self.canvas:
-            self.bg_bind = BindTexture(index=1)
-            self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=self.border_radius)
+        # Estructura Principal
+        main = BoxLayout(orientation='vertical')
+
+        # Top Bar (Premium Header)
+        top_bar = BoxLayout(size_hint_y=None, height=dp(70), padding=[dp(20), 0], spacing=dp(15))
+        with top_bar.canvas.before:
+            Color(1, 1, 1, 1)
+            Rectangle(pos=(0, Window.height - dp(70)), size=(Window.width, dp(70)))
+            Color(0.9, 0.9, 0.9, 1)
+            Line(points=[0, Window.height - dp(70), Window.width, Window.height - dp(70)], width=1)
+
+        logo = Image(source='assets/icons/logo.png', size_hint=(None, None), size=(dp(40), dp(40)), 
+                     pos_hint={'center_y': .5})
+        top_bar.add_widget(logo)
+
+        title_box = BoxLayout(orientation='vertical', size_hint_x=1, pos_hint={'center_y': .5})
+        title_box.add_widget(Label(text="Importaciones Wing", bold=True, font_size='18sp', 
+                                  color=(0.1, 0.1, 0.2, 1), halign='left', size_hint_x=1))
+        self.lbl_status = Label(text="● Sistema Master Online", font_size='11sp', color=(0.2, 0.8, 0.4, 1), 
+                               halign='left', size_hint_x=1)
+        title_box.add_widget(self.lbl_status)
+        top_bar.add_widget(title_box)
         
-        Clock.schedule_interval(self.update_blur, 1/30.)
+        main.add_widget(top_bar)
 
-    def update_blur(self, *args):
-        if not self.background: return
-        self.rect.size = self.size
-        self.rect.pos = self.pos
-        # Captura simplificada para no matar el CPU
-        self.h_fbo.size = (self.width/2, self.height/2)
-        self.v_fbo.size = (self.width/2, self.height/2)
-        self.bg_bind.texture = self.background.export_as_image().texture
+        # Chat Area
+        self.scroll = ScrollView(do_scroll_x=False)
+        self.chat_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(10), padding=[0, dp(15)])
+        self.chat_list.bind(minimum_height=self.chat_list.setter('height'))
+        self.scroll.add_widget(self.chat_list)
+        main.add_widget(self.scroll)
 
-class LiquidBackground(Widget):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.canvas = RenderContext(use_parent_projection=True, fs=liquid_bg_shader)
-        with self.canvas:
-            self.rect = Rectangle(size=Window.size, pos=(0,0))
-        Clock.schedule_interval(self.update_shader, 1/60.)
+        # Bottom Bar (Premium Tools)
+        bottom_bar = BoxLayout(size_hint_y=None, height=dp(80), padding=dp(15), spacing=dp(15))
+        with bottom_bar.canvas.before:
+            Color(1, 1, 1, 1)
+            RoundedRectangle(pos=(dp(10), dp(10)), size=(Window.width - dp(20), dp(65)), radius=[25])
+            Color(0, 0, 0, 0.05)
+            Line(rounded_rectangle=(dp(10), dp(10), Window.width - dp(20), dp(65), 25), width=1.5)
 
-    def update_shader(self, dt):
-        self.canvas['time'] = Clock.get_boottime()
-        self.canvas['resolution'] = [float(v) for v in Window.size]
-        self.rect.size = Window.size
-
-class StarkHolographicApp(App):
-    status_ntfy = StringProperty("🟢")
-    status_pc = StringProperty("⚪")
-
-    def build(self):
-        root = FloatLayout()
+        self.btn_scan = Button(text="📷", background_normal='', background_color=(0.95, 0.96, 1, 1), 
+                              color=(0.1, 0.5, 0.9, 1), font_size='22sp', size_hint_x=None, width=dp(55))
         
-        # 1. Capa de Fondo Líquido (Shader)
-        self.bg = LiquidBackground()
-        root.add_widget(self.bg)
-
-        # 2. Capa de Interfaz (Glassmorphism)
-        main_layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15))
+        self.input_code = Label(text="wingpay_client_A2ZQV4", color=(0.4, 0.4, 0.5, 1), font_size='12sp')
         
-        # Cabecera Master
-        header = BoxLayout(size_hint_y=None, height=dp(80), spacing=dp(10))
-        header.add_widget(Label(text="2026 WING MASTER\nHOLOGRAPHIC v58.0", bold=True, font_size='22sp', color=(0, 0.9, 1, 1)))
+        self.btn_test = Button(text="🧪", background_normal='', background_color=(0.95, 1, 0.96, 1), 
+                              color=(0.2, 0.8, 0.4, 1), font_size='22sp', size_hint_x=None, width=dp(55))
+
+        self.btn_sos = Button(text="🚨", background_normal='', background_color=(1, 0.95, 0.95, 1), 
+                             color=(1, 0.2, 0.2, 1), font_size='22sp', size_hint_x=None, width=dp(55))
+
+        bottom_bar.add_widget(self.btn_scan)
+        bottom_bar.add_widget(self.input_code)
+        bottom_bar.add_widget(self.btn_test)
+        bottom_bar.add_widget(self.btn_sos)
         
-        leds = BoxLayout(size_hint_x=None, width=dp(100), orientation='vertical')
-        self.lbl_ntfy = Label(text=f"RED: {self.status_ntfy}", font_size='12sp')
-        self.lbl_pc = Label(text=f"SYNC: {self.status_pc}", font_size='12sp')
-        leds.add_widget(self.lbl_ntfy); leds.add_widget(self.lbl_pc)
-        header.add_widget(leds)
-        
-        main_layout.add_widget(header)
+        main.add_widget(bottom_bar)
+        self.add_widget(main)
 
-        # Stark Terminal (Frosted Glass)
-        term_panel = FrostedPanel(size_hint_y=None, height=dp(200), background=self.bg)
-        self.terminal = Label(text="[STARK_OS]: Sistema Neural v58 Online\n[SINC]: Puente Master Activo", 
-                             font_size='13sp', font_name='Roboto', color=(0, 1, 0.4, 1), halign='left', valign='top')
-        term_panel.add_widget(self.terminal)
-        main_layout.add_widget(term_panel)
-
-        # Espacio para Pagos
-        self.scroll = ScrollView()
-        self.payment_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(10))
-        self.payment_list.bind(minimum_height=self.payment_list.setter('height'))
-        self.scroll.add_widget(self.payment_list)
-        main_layout.add_widget(self.scroll)
-
-        # Botonera Master
-        btn_bar = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(10))
-        btn_bar.add_widget(Button(text="📷 SCAN QR", background_color=(0, 0.8, 0.4, 0.6), on_release=self.scan_qr))
-        btn_bar.add_widget(Button(text="🧪 TEST", background_color=(0, 0.5, 0.8, 0.6), on_release=self.run_test))
-        btn_bar.add_widget(Button(text="🚨 SOS", background_color=(0.8, 0.1, 0.1, 0.6), on_release=self.trigger_sos))
-        main_layout.add_widget(btn_bar)
-
-        # Entrada Manual de Código
-        self.code_input = TextInput(hint_text="Ingresar Código Manual...", multiline=False, size_hint_y=None, height=dp(50),
-                                   background_color=(1,1,1,0.1), foreground_color=(1,1,1,1), padding=[10, 10])
-        self.code_input.bind(on_text_validate=self.manual_link)
-        main_layout.add_widget(self.code_input)
-
-        root.add_widget(main_layout)
-        
-        # Cargar tópico guardado o usar default Master
-        self.topic = self.get_stored_topic()
+        # Lógica de Escucha
         threading.Thread(target=self.ntfy_listener, daemon=True).start()
-        
-        return root
-
-    def get_stored_topic(self):
-        # Simulación de persistencia (v58.1 usará SharedPrefs en el APK real)
-        return "wingpay_client_A2ZQV4"
-
-    def manual_link(self, instance):
-        new_code = instance.text.strip()
-        if new_code:
-            self.topic = new_code
-            self.log_terminal(f"VINCULADO: {new_code}")
-            instance.text = ""
-            # Reiniciar escucha con nuevo tópico
-            threading.Thread(target=self.ntfy_listener, daemon=True).start()
-
-    def scan_qr(self, *args):
-        self.log_terminal("SISTEMA: INICIANDO_ESCANER_ZBAR")
-        # Inyectará el código nativo de escaneo en la compilación final
 
     def ntfy_listener(self):
-        url = f"https://ntfy.sh/{self.topic}/json"
+        topic = "wingpay_client_A2ZQV4"
+        url = f"https://ntfy.sh/{topic}/json"
         while True:
             try:
                 with requests.get(url, stream=True, timeout=None) as r:
-                    self.status_ntfy = "🟢"
                     for line in r.iter_lines():
                         if line:
                             data = json.loads(line)
                             if "message" in data:
-                                msg_data = json.loads(data["message"])
-                                if msg_data.get("sender") == "PC":
-                                    self.status_pc = "🔵"
-                                    self.log_terminal(f"SYNC_PC: {msg_data.get('message')}")
-                                    Clock.schedule_once(lambda dt: setattr(self, 'status_pc', "⚪"), 2)
-            except:
-                self.status_ntfy = "🔴"
-                import time; time.sleep(10)
+                                msg = json.loads(data["message"])
+                                if msg.get("sender") == "CELULAR": continue # Evitar eco
+                                self.add_message_to_ui(msg)
+            except: time.sleep(10)
 
     @mainthread
-    def log_terminal(self, text):
-        self.terminal.text = f"{self.terminal.text}\n[{datetime.now().strftime('%H:%M')}] {text}"
+    def add_message_to_ui(self, msg):
+        hora = datetime.now().strftime("%H:%M")
+        is_sos = msg.get("type") == "SOS"
+        item = PremiumMessage(
+            bank=msg.get("bank", "YAPE"),
+            name=msg.get("name", "Wilson Orellano"),
+            amt=msg.get("amt", "0.00"),
+            time=hora,
+            is_sos=is_sos
+        )
+        self.chat_list.add_widget(item)
+        Clock.schedule_once(lambda dt: setattr(self.scroll, 'scroll_y', 0), 0.1)
 
-    def broadcast_to_mirror(self, bank, name, amt, is_sos=False):
-        topic = "wingpay_client_A2ZQV4"
-        url = f"https://ntfy.sh/{topic}"
-        payload = {
-            "bank": bank,
-            "name": name,
-            "amt": amt,
-            "sender": "CELULAR",
-            "type": "SOS" if is_sos else "PAYMENT",
-            "time": datetime.now().strftime("%H:%M:%S")
-        }
-        try:
-            requests.post(url, data=json.dumps(payload), timeout=5)
-        except:
-            self.log_terminal("ERROR: NO_PUDO_ENVIAR_A_PC")
-
-    def run_test(self, *args):
-        self.log_terminal("CMD: TEST_SINC_MASTER")
-        threading.Thread(target=self.broadcast_to_mirror, args=("YAPE", "PRUEBA MASTER 2026", "1.00")).start()
-
-    def trigger_sos(self, *args):
-        self.log_terminal("ALERTA: SOS_ENVIADO_A_PC")
-        threading.Thread(target=self.broadcast_to_mirror, args=("SOS", "EMERGENCIA", "0", True)).start()
+class WingPayPremiumApp(App):
+    def build(self):
+        return PremiumMasterUI()
 
 if __name__ == '__main__':
-    StarkHolographicApp().run()
+    WingPayPremiumApp().run()
