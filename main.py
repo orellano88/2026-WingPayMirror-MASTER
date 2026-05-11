@@ -169,20 +169,44 @@ class StarkHolographicApp(App):
 
         # Botonera Master
         btn_bar = BoxLayout(size_hint_y=None, height=dp(70), spacing=dp(10))
+        btn_bar.add_widget(Button(text="📷 SCAN QR", background_color=(0, 0.8, 0.4, 0.6), on_release=self.scan_qr))
         btn_bar.add_widget(Button(text="🧪 TEST", background_color=(0, 0.5, 0.8, 0.6), on_release=self.run_test))
         btn_bar.add_widget(Button(text="🚨 SOS", background_color=(0.8, 0.1, 0.1, 0.6), on_release=self.trigger_sos))
         main_layout.add_widget(btn_bar)
 
+        # Entrada Manual de Código
+        self.code_input = TextInput(hint_text="Ingresar Código Manual...", multiline=False, size_hint_y=None, height=dp(50),
+                                   background_color=(1,1,1,0.1), foreground_color=(1,1,1,1), padding=[10, 10])
+        self.code_input.bind(on_text_validate=self.manual_link)
+        main_layout.add_widget(self.code_input)
+
         root.add_widget(main_layout)
         
-        # Iniciar Escucha (ntfy.sh)
+        # Cargar tópico guardado o usar default Master
+        self.topic = self.get_stored_topic()
         threading.Thread(target=self.ntfy_listener, daemon=True).start()
         
         return root
 
+    def get_stored_topic(self):
+        # Simulación de persistencia (v58.1 usará SharedPrefs en el APK real)
+        return "wingpay_client_A2ZQV4"
+
+    def manual_link(self, instance):
+        new_code = instance.text.strip()
+        if new_code:
+            self.topic = new_code
+            self.log_terminal(f"VINCULADO: {new_code}")
+            instance.text = ""
+            # Reiniciar escucha con nuevo tópico
+            threading.Thread(target=self.ntfy_listener, daemon=True).start()
+
+    def scan_qr(self, *args):
+        self.log_terminal("SISTEMA: INICIANDO_ESCANER_ZBAR")
+        # Inyectará el código nativo de escaneo en la compilación final
+
     def ntfy_listener(self):
-        topic = "wingpay_client_A2ZQV4"
-        url = f"https://ntfy.sh/{topic}/json"
+        url = f"https://ntfy.sh/{self.topic}/json"
         while True:
             try:
                 with requests.get(url, stream=True, timeout=None) as r:
