@@ -233,7 +233,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
             isTtsReady = true
             synchronized(pendingMessages) {
                 val iterator = pendingMessages.iterator()
-                while (iterator.hasNext()) { speak(iterator.next()); iterator.remove() }
+                while (iterator.hasNext()) { awakeAndSpeak(iterator.next()); iterator.remove() }
             }
         }
     }

@@ -132,7 +132,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         val visualContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            gravity = Gravity.CENTER
         }
 
         centralLogo = ImageView(this).apply {
