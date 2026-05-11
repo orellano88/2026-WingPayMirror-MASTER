@@ -93,7 +93,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "IMPORTACIONES WING"; textSize = 22f; setTextColor(0xFF00E5FF.toInt()); setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "2026 MASTER CROSS-ALARM v62.0"; textSize = 10f; setTextColor(Color.WHITE); alpha = 0.6f
+                text = "2026 MASTER GOD v62.1"; textSize = 10f; setTextColor(Color.WHITE); alpha = 0.6f
             })
         }
         

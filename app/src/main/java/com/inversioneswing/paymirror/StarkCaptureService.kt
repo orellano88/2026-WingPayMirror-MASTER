@@ -153,7 +153,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
 
     private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
         .setContentTitle("Importaciones Wing 2026")
-        .setContentText("Neural Synergy Master v61.1 Active")
+        .setContentText("Neural Master God v62.1 Active")
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setOngoing(true).build()

@@ -70,25 +70,17 @@ class NeonCard(BoxLayout):
         self.bg.size = self.size
         self.border.rounded_rectangle = (self.x, self.y, self.width, self.height, 15)
 
-class RotatingHologram(Image):
-    angle = NumericProperty(0)
+class StaticHologram(Image):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.source = 'assets/icons/logo.png'
         with self.canvas.before:
-            PushMatrix()
-            self.rot = Rotate(angle=0, axis=(0, 1, 0))
-            Color(0, 1, 1, 0.3)
-            self.glow = Ellipse(size=(dp(200), dp(20)), pos=(self.x, self.y - dp(20)))
-        with self.canvas.after:
-            PopMatrix()
-        Clock.schedule_interval(self.animate, 1/60.)
+            Color(0, 1, 1, 0.2)
+            self.glow = Ellipse(size=(dp(240), dp(24)), pos=(self.x, self.y))
+        self.bind(pos=self.update_graphics, size=self.update_graphics)
 
-    def animate(self, dt):
-        self.angle += 1
-        self.rot.angle = self.angle
-        self.rot.origin = self.center
-        self.glow.pos = (self.center_x - dp(100), self.y - dp(10))
+    def update_graphics(self, *args):
+        self.glow.pos = (self.center_x - dp(120), self.center_y - dp(110))
 
 class CyberHUD(FloatLayout):
     def __init__(self, **kwargs):
@@ -97,9 +89,9 @@ class CyberHUD(FloatLayout):
         # 1. Capa Grid & Scanner
         self.add_widget(CyberGrid())
 
-        # 2. Logo Holográfico Central
-        self.hologram = RotatingHologram(size_hint=(None, None), size=(dp(300), dp(300)), 
-                                        pos_hint={'center_x': .5, 'center_y': .5}, opacity=0.2)
+        # 2. Logo Holográfico Central (Estatico)
+        self.hologram = StaticHologram(size_hint=(None, None), size=(dp(280), dp(280)), 
+                                        pos_hint={'center_x': .5, 'center_y': .55}, opacity=0.15)
         self.add_widget(self.hologram)
 
         # 3. Layout de Contenido
@@ -203,7 +195,7 @@ class CyberHUD(FloatLayout):
 
 class WingPayCyberApp(App):
     def build(self):
-        Window.title = "STARK OS v62.0 MASTER CROSS-ALARM"
+        Window.title = "STARK OS v62.1 MASTER GOD"
         return CyberHUD()
 
 if __name__ == '__main__':
