@@ -204,12 +204,29 @@ class StarkHolographicApp(App):
     def log_terminal(self, text):
         self.terminal.text = f"{self.terminal.text}\n[{datetime.now().strftime('%H:%M')}] {text}"
 
+    def broadcast_to_mirror(self, bank, name, amt, is_sos=False):
+        topic = "wingpay_client_A2ZQV4"
+        url = f"https://ntfy.sh/{topic}"
+        payload = {
+            "bank": bank,
+            "name": name,
+            "amt": amt,
+            "sender": "CELULAR",
+            "type": "SOS" if is_sos else "PAYMENT",
+            "time": datetime.now().strftime("%H:%M:%S")
+        }
+        try:
+            requests.post(url, data=json.dumps(payload), timeout=5)
+        except:
+            self.log_terminal("ERROR: NO_PUDO_ENVIAR_A_PC")
+
     def run_test(self, *args):
         self.log_terminal("CMD: TEST_SINC_MASTER")
-        # Aquí iría el envío de intent al servicio Kotlin v57.2
+        threading.Thread(target=self.broadcast_to_mirror, args=("YAPE", "PRUEBA MASTER 2026", "1.00")).start()
 
     def trigger_sos(self, *args):
         self.log_terminal("ALERTA: SOS_ENVIADO_A_PC")
+        threading.Thread(target=self.broadcast_to_mirror, args=("SOS", "EMERGENCIA", "0", True)).start()
 
 if __name__ == '__main__':
     StarkHolographicApp().run()
