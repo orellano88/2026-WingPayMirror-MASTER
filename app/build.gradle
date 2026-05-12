@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.wing.enterprise.sync'
+    namespace 'com.office.utility.sync'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.wing.enterprise.sync"
+        applicationId "com.office.utility.sync"
         minSdk 26
         targetSdk 34
         versionCode 801

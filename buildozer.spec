@@ -1,10 +1,10 @@
 [app]
-title = Wing Office Master
+title = Office Utility Master
 package.name = office_sync_master
-package.domain = com.wing.enterprise
+package.domain = com.office.utility
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
-version = 65.2
+version = 66.0
 requirements = python3,kivy,plyer,android,requests,certifi
 orientation = portrait
 osx.python_version = 3

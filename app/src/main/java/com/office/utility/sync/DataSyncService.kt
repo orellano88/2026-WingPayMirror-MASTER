@@ -1,4 +1,4 @@
-package com.wing.enterprise.sync
+package com.office.utility.sync
 
 import android.app.*
 import android.content.*
@@ -29,7 +29,7 @@ import java.util.regex.Pattern
    - PAGOS: El celular anuncia para aviso del cajero.
 */
 
-class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitListener {
+class DataSyncService : NotificationListenerService(), TextToSpeech.OnInitListener {
 
     private val CHANNEL_ID = "WING_CROSS_CHANNEL"
     private var pcListenerJob: Job? = null
@@ -43,7 +43,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     private var currentTopic: String = "wingpay_client_A2ZQV4"
 
     companion object {
-        private var activeInstance: StarkCaptureService? = null
+        private var activeInstance: DataSyncService? = null
         fun sendAudioCommand(text: String) { activeInstance?.awakeAndSpeak(text) }
         fun triggerRemoteSOS() { activeInstance?.enviarSOSaPC() }
     }

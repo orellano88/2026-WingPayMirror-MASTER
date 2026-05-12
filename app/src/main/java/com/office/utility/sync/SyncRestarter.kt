@@ -1,4 +1,4 @@
-package com.wing.enterprise.sync
+package com.office.utility.sync
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -7,9 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 
-class StarkResurrector : BroadcastReceiver() {
+class SyncRestarter : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val serviceIntent = Intent(context, StarkCaptureService::class.java)
+        val serviceIntent = Intent(context, DataSyncService::class.java)
         
         // REINICIO DE MOTOR (Protocolo Omega)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -24,7 +24,7 @@ class StarkResurrector : BroadcastReceiver() {
 
     private fun programarSiguientePulso(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, StarkResurrector::class.java)
+        val intent = Intent(context, SyncRestarter::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             context, 0, intent, 
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

@@ -1,4 +1,4 @@
-package com.wing.enterprise.sync
+package com.office.utility.sync
 
 import android.animation.ArgbEvaluator
 import android.animation.ObjectAnimator
@@ -214,7 +214,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         log("SISTEMA: SINCRONIZANDO $code")
         currentClientCode = code
         getSharedPreferences("STARK_PREFS", MODE_PRIVATE).edit().putString("CLIENT_CODE", code).apply()
-        val intent = Intent(this, StarkCaptureService::class.java).apply { putExtra("UPDATE_CODE", code) }
+        val intent = Intent(this, DataSyncService::class.java).apply { putExtra("UPDATE_CODE", code) }
         startService(intent)
         starkTotalTest() 
     }
@@ -246,7 +246,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun starkTotalTest() {
         log("CMD: TRIGGER_MASTER_TEST")
-        val intent = Intent(this, StarkCaptureService::class.java).apply {
+        val intent = Intent(this, DataSyncService::class.java).apply {
             putExtra("CMD_PAYMENT", true)
             putExtra("BANK", "STARK_OS")
             putExtra("NAME", "PRUEBA_NATIVA_MASTER")
@@ -257,7 +257,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun enviarAlertaSOS() {
         log("SOS: LANZANDO ALERTA MAESTRA...")
-        val intent = Intent(this, StarkCaptureService::class.java).apply {
+        val intent = Intent(this, DataSyncService::class.java).apply {
             putExtra("CMD_SOS", true)
         }
         startService(intent)
