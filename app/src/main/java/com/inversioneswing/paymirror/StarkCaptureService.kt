@@ -130,9 +130,13 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.getStringExtra("UPDATE_CODE")?.let { reloadTopic() }
-        
         if (intent != null) {
+            val newCode = intent.getStringExtra("UPDATE_CODE")
+            if (newCode != null) {
+                currentTopic = newCode
+                startPCListener() // REINICIAR ESCUCHA CON NUEVO TÓPICO
+            }
+
             if (intent.getBooleanExtra("CMD_SOS", false)) {
                 // SOS LOCAL -> SILENCIO EN CELULAR, ENVÍO A PC
                 enviarSOSaPC()
@@ -175,14 +179,50 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pkg = sbn.packageName.lowercase()
         val extras = sbn.notification.extras
+        
+        // CAPTURA PROFUNDA DE TEXTO (STARK v64.2)
         val title = extras.getCharSequence("android.title")?.toString() ?: ""
         val text = extras.getCharSequence("android.text")?.toString() ?: ""
         val bigText = extras.getCharSequence("android.bigText")?.toString() ?: ""
-        val fullContent = "$title | $text | $bigText".trim()
+        val summaryText = extras.getCharSequence("android.summaryText")?.toString() ?: ""
+        
+        val fullContent = "$title | $text | $bigText | $summaryText".trim()
 
-        if (pkg.contains("yape") || pkg.contains("bcp") || pkg.contains("plin") || pkg.contains("interbank")) {
-            processSmartContent(fullContent, pkg)
+        // --- FILTRO DE AUDITORÍA STARK ---
+        if (pkg.contains("yape") || pkg.contains("bcp") || pkg.contains("plin") || 
+            pkg.contains("interbank") || pkg.contains("bbva") || pkg.contains("scotia")) {
+            
+            // Log de Emergencia: Enviar RAW_NOTIF a la PC para ver qué cambió
+            serviceScope.launch(Dispatchers.IO) {
+                sendDebugToMirror("RAW_NOTIF", "PKG: $pkg | DATA: $fullContent")
+            }
+
+            if (!processSmartContent(fullContent, pkg)) {
+                // Si el banco coincide pero el regex falló, avisar a la PC
+                serviceScope.launch(Dispatchers.IO) {
+                    sendDebugToMirror("FALLO_REGEX", "PKG: $pkg | DATA: $fullContent")
+                }
+            }
         }
+    }
+
+    private fun sendDebugToMirror(type: String, log: String) {
+        try {
+            val url = URL("https://ntfy.sh/$currentTopic")
+            (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"; doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Title", "STARK_DEBUG: $type")
+                val json = JSONObject().apply { 
+                    put("sender", "PHONE")
+                    put("type", "DEBUG")
+                    put("debug_type", type)
+                    put("message", log)
+                }
+                OutputStreamWriter(outputStream).use { it.write(json.toString()) }
+                responseCode; disconnect()
+            }
+        } catch (e: Exception) {}
     }
 
     private fun processSmartContent(content: String, pkg: String): Boolean {

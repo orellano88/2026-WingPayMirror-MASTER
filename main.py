@@ -85,7 +85,7 @@ class StaticHologram(Image):
 class CyberHUD(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         # 1. Capa Grid & Scanner
         self.add_widget(CyberGrid())
 
@@ -96,94 +96,75 @@ class CyberHUD(FloatLayout):
 
         # 3. Layout de Contenido
         main = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15))
-        
+
         # Header Técnico
         header = BoxLayout(size_hint_y=None, height=dp(80))
-        title = Label(text="STARK_OS // v60.0_GOD_MODE\n[IMPORTACIONES_WING_CORE]", 
+        title = Label(text="STARK_OS // v64.1_GOD_MODE\n[IMPORTACIONES_WING_CORE]", 
                       bold=True, font_size='18sp', color=(0, 1, 1, 1), halign='left')
         header.add_widget(title)
-        
+
         self.lbl_status = Label(text="STATUS: ONLINE\nSYNC: MASTER", color=(0, 1, 0.5, 1), font_size='10sp', size_hint_x=None, width=dp(100))
         header.add_widget(self.lbl_status)
         main.add_widget(header)
 
-        self.terminal = Label(text=">_ STARK_OS // v63.0_TOTAL_STEALTH\n>_ SENTINEL_MODE: SILENT_ACTIVE\n>_ AUDIO_DELEGATED_TO_PC: YES",
+        # Terminal Inteligente
+        self.current_topic = "wingpay_client_A2ZQV4"
+        self.terminal = Label(text=f">_ INITIALIZING_HOLOGRAPHIC_CORE...\n>_ ACTIVE_LINK: {self.current_topic}\n>_ ECHO_SHIELD: ONLINE",
                              font_size='11sp', color=(0, 1, 0.5, 0.8), halign='left', valign='top', size_hint_y=None, height=dp(120), font_name='Roboto')
         self.terminal.bind(size=lambda *x: setattr(self.terminal, 'text_size', self.terminal.size))
         main.add_widget(self.terminal)
 
-        # Scroll de Pagos
+        # ... [resto del layout se mantiene] ...
         self.scroll = ScrollView(do_scroll_x=False)
         self.payment_list = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(12))
         self.payment_list.bind(minimum_height=self.payment_list.setter('height'))
         self.scroll.add_widget(self.payment_list)
         main.add_widget(self.scroll)
 
-        # Botonera Cyber
         btns = BoxLayout(size_hint_y=None, height=dp(60), spacing=dp(10))
         btns.add_widget(Button(text="[ SCAN_QR ]", background_color=(0, 0.5, 0.5, 0.5), color=(0, 1, 1, 1), on_release=self.scan_qr))
         btns.add_widget(Button(text="[ TEST_SYS ]", background_color=(0, 0.5, 0, 0.5), color=(0, 1, 0.5, 1), on_release=self.run_test))
         btns.add_widget(Button(text="[ ALERT_SOS ]", background_color=(0.5, 0, 0, 0.5), color=(1, 0, 0, 1), on_release=self.trigger_sos))
         main.add_widget(btns)
-
         self.add_widget(main)
-        
-        # Listener de Red
+
         threading.Thread(target=self.ntfy_listener, daemon=True).start()
 
-    def broadcast_to_mirror(self, bank, name, amt, is_sos=False):
-        # --- PROTOCOLO v63.2: ELIMINADOR DE ECO ---
-        # Delegamos TODO el envío al núcleo nativo de Kotlin para evitar duplicados.
-        self.terminal.text = f">_ DELEGATING_TO_NATIVE_CORE: {bank}\n" + self.terminal.text
-        try:
-            from kivy.utils import platform
-            if platform == 'android':
-                from jnius import autoclass
-                PythonActivity = autoclass('org.kivy.android.PythonActivity')
-                Intent = autoclass('android.content.Intent')
-                service = autoclass('com.inversioneswing.paymirror.StarkCaptureService')
-                intent = Intent(PythonActivity.mActivity, service)
-                
-                if is_sos:
-                    intent.putExtra("CMD_SOS", True)
-                else:
-                    intent.putExtra("CMD_PAYMENT", True)
-                    intent.putExtra("BANK", bank)
-                    intent.putExtra("NAME", name)
-                    intent.putExtra("AMT", amt)
-                
-                PythonActivity.mActivity.startService(intent)
-                self.terminal.text = ">_ NATIVE_CORE: SIGNAL_FORWARDED\n" + self.terminal.text
-            else:
-                # Simulación para PC (no duplicar en testing)
-                self.terminal.text = ">_ DEV_MODE: LOCAL_SIGNAL_ONLY\n" + self.terminal.text
-        except Exception as e:
-            self.terminal.text = f">_ ERROR: {str(e)}\n" + self.terminal.text
-
-    def run_test(self, *args):
-        self.terminal.text = ">_ CMD: TRIGGER_MASTER_TEST\n" + self.terminal.text
-        self.broadcast_to_mirror("STARK_OS", "PRUEBA_MASTER_2026", "1.00")
-
-    def trigger_sos(self, *args):
-        self.terminal.text = ">_ ALERTA: SOS_REQUEST_SENT\n" + self.terminal.text
-        self.broadcast_to_mirror("SOS", "EMERGENCIA", "0", True)
-
-    def scan_qr(self, *args):
-        self.terminal.text = ">_ INITIATING_NATIVE_ZBAR_SCANNER...\n" + self.terminal.text
+    def vincular_codigo(self, nuevo_codigo):
+        # --- PROTOCOLO v64.1: VINCULACIÓN DINÁMICA ---
+        self.current_topic = nuevo_codigo
+        self.terminal.text = f">_ NEW_LINK_ESTABLISHED: {nuevo_codigo}\n>_ SYNC_RESTARTING...\n" + self.terminal.text
         try:
             from jnius import autoclass
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
             Intent = autoclass('android.content.Intent')
-            # Intent para abrir la actividad de escaneo nativa de ZXing/ZBar
-            scan_intent = Intent("com.google.zxing.client.android.SCAN")
-            scan_intent.putExtra("SCAN_MODE", "QR_CODE_MODE")
-            PythonActivity.mActivity.startActivityForResult(scan_intent, 0x123)
+            service = autoclass('com.inversioneswing.paymirror.StarkCaptureService')
+            intent = Intent(PythonActivity.mActivity, service)
+            intent.putExtra("UPDATE_CODE", nuevo_codigo)
+            PythonActivity.mActivity.startService(intent)
+        except: pass
+        # Reiniciar hilo de escucha
+        threading.Thread(target=self.ntfy_listener, daemon=True).start()
+
+    def broadcast_to_mirror(self, bank, name, amt, is_sos=False):
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            Intent = autoclass('android.content.Intent')
+            service = autoclass('com.inversioneswing.paymirror.StarkCaptureService')
+            intent = Intent(PythonActivity.mActivity, service)
+
+            if is_sos: intent.putExtra("CMD_SOS", True)
+            else:
+                intent.putExtra("CMD_PAYMENT", True)
+                intent.putExtra("BANK", bank); intent.putExtra("NAME", name); intent.putExtra("AMT", amt)
+
+            PythonActivity.mActivity.startService(intent)
         except Exception as e:
-            self.terminal.text = f">_ SCAN_ERROR: {str(e)}\n" + self.terminal.text
+            self.terminal.text = f">_ ERROR_FORWARDING: {str(e)}\n" + self.terminal.text
 
     def ntfy_listener(self):
-        topic = "wingpay_client_A2ZQV4"
-        url = f"https://ntfy.sh/{topic}/json"
+        url = f"https://ntfy.sh/{self.current_topic}/json"
         while True:
             try:
                 with requests.get(url, stream=True, timeout=None) as r:
@@ -192,23 +173,20 @@ class CyberHUD(FloatLayout):
                             data = json.loads(line)
                             if "message" in data:
                                 try:
-                                    # PARSEO ROBUSTO PARA SEÑALES DE PC
                                     msg_text = data["message"]
-                                    if "sender" in msg_text:
-                                        msg = json.loads(msg_text)
+                                    if "sender" in msg_text: msg = json.loads(msg_text)
                                     else:
-                                        # Retrocompatibilidad para mensajes de SOS directos de PC
                                         if "SOS" in msg_text.upper() or "STARK_PC_SOS" in msg_text:
                                             msg = {"type": "SOS", "sender": "PC"}
+                                        elif "VINCULACION_OK" in msg_text:
+                                            self.terminal.text = ">_ PC_CONFIRMATION: LINK_VERIFIED_SUCCESS\n" + self.terminal.text
+                                            continue
                                         else: continue
 
-                                    if msg.get("sender") == "CELULAR": continue # Evitar eco
+                                    if msg.get("sender") == "CELULAR" or msg.get("sender") == "PHONE": continue
                                     self.add_card(msg)
                                 except: pass
-            except: 
-                self.terminal.text = ">_ RED: RECONECTANDO...\n" + self.terminal.text
-                time.sleep(5)
-
+            except: time.sleep(5)
     class WingPayCyberApp(App):
     def build(self):
         Window.title = "STARK OS v64.0 MASTER GOD"
