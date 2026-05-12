@@ -192,5 +192,22 @@ class WingPayCyberApp(App):
     def build(self):
         return CyberHUD()
 
+    def on_start(self):
+        # --- [PROTOCOLO v65.1: ESCUCHA DE RESULTADOS NATIVOS] ---
+        try:
+            from kivy.utils import platform
+            if platform == 'android':
+                from android import activity
+                activity.bind(on_activity_result=self.on_activity_result)
+        except: pass
+
+    def on_activity_result(self, request_code, result_code, data):
+        if request_code == 0x123 and result_code == -1: # RESULT_OK
+            try:
+                scanned_val = data.getStringExtra("SCAN_RESULT")
+                if scanned_val and "wingpay_client" in scanned_val:
+                    self.root.verify_link(scanned_val)
+            except: pass
+
 if __name__ == '__main__':
     WingPayCyberApp().run()
