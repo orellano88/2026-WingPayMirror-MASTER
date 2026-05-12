@@ -103,17 +103,33 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun dispararAlarmaLocal(text: String) {
-        // ACTIVAR SONIDO SOLO EN RESPUESTA A LA PC
+        // --- PROTOCOLO v64.4: DEFENSA ACÚSTICA ---
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500, 200, 500), -1))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Patrón de vibración agresivo: 0ms espera, 1s vibra, 0.5s espera...
+            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 1000, 500, 1000, 500, 1000, 500, 1000), -1))
+        } else {
+            vibrator.vibrate(5000)
+        }
         
         try {
+            // Activar Sirena de Sistema a máximo volumen
             val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             val r = RingtoneManager.getRingtone(applicationContext, notification)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                r.isLooping = false
+            }
             r.play()
-            Handler(Looper.getMainLooper()).postDelayed({ r.stop() }, 5000)
-        } catch (e: Exception) {}
+            
+            // Detener sirena tras 6 segundos para no bloquear el equipo infinitamente
+            Handler(Looper.getMainLooper()).postDelayed({ 
+                if (r.isPlaying) r.stop() 
+            }, 6000)
+        } catch (e: Exception) {
+            Log.e("STARK_SOS", "Fallo al disparar sirena: ${e.message}")
+        }
         
+        // Voz de JARVIS a máximo volumen
         awakeAndSpeak(text)
     }
 
