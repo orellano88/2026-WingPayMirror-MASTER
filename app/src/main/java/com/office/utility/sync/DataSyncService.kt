@@ -146,20 +146,15 @@ class DataSyncService : NotificationListenerService(), TextToSpeech.OnInitListen
             val newCode = intent.getStringExtra("UPDATE_CODE")
             if (newCode != null) {
                 currentTopic = newCode
-                startPCListener() // REINICIAR ESCUCHA CON NUEVO TÓPICO
+                startPCListener() 
             }
 
             if (intent.getBooleanExtra("CMD_SOS", false)) {
-                // SOS LOCAL -> SILENCIO EN CELULAR, ENVÍO A PC
                 enviarSOSaPC()
             } else if (intent.getBooleanExtra("CMD_PAYMENT", false)) {
-                val b = intent.getStringExtra("BANK") ?: "STARK"
-                val n = intent.getStringExtra("NAME") ?: "Cliente"
+                val b = intent.getStringExtra("BANK") ?: "DATA"
+                val n = intent.getStringExtra("NAME") ?: "Node"
                 val a = intent.getStringExtra("AMT") ?: "0.00"
-                
-                // ANUNCIO DE PAGO EN CELULAR (OPCIONAL SEGÚN Wilson)
-                awakeAndSpeak("Pago de $n por $a soles recibido en $b.")
-                
                 serviceScope.launch(Dispatchers.IO) { sendToMirror(b, n, a) }
             }
         }
@@ -167,7 +162,7 @@ class DataSyncService : NotificationListenerService(), TextToSpeech.OnInitListen
         createNotificationChannel()
         val notification = createPersistentNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
+            startForeground(101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         } else {
             startForeground(101, notification)
         }
@@ -176,8 +171,17 @@ class DataSyncService : NotificationListenerService(), TextToSpeech.OnInitListen
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "WingPay Enterprise Sync", NotificationManager.IMPORTANCE_HIGH)
+            val channel = NotificationChannel(CHANNEL_ID, "Data Bridge Utility", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+    }
+
+    private fun createPersistentNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
+        .setContentTitle("Data Bridge Active")
+        .setContentText("Ensuring real-time connectivity")
+        .setSmallIcon(android.R.drawable.ic_menu_compass)
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .setOngoing(true).build()
         }
     }
 
