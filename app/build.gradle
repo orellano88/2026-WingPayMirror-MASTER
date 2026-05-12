@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.inversioneswing.paymirror'
+    namespace 'com.wing.enterprise.sync'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.inversioneswing.paymirror"
+        applicationId "com.wing.enterprise.sync"
         minSdk 26
         targetSdk 34
         versionCode 801

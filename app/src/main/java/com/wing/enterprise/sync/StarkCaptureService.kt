@@ -1,4 +1,4 @@
-package com.inversioneswing.paymirror
+package com.wing.enterprise.sync
 
 import android.app.*
 import android.content.*
