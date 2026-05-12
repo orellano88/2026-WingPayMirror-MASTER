@@ -320,3 +320,4 @@ class DataSyncService : NotificationListenerService(), TextToSpeech.OnInitListen
         super.onDestroy()
     }
 }
+}
