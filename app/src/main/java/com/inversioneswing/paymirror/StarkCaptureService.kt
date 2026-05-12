@@ -167,7 +167,7 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
         createNotificationChannel()
         val notification = createPersistentNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            startForeground(101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
         } else {
             startForeground(101, notification)
         }

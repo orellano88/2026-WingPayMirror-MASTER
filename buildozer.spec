@@ -1,16 +1,16 @@
 [app]
-title = WingPay Enterprise 2026
-package.name = wingpay_sync_master
-package.domain = com.inversioneswing.enterprise
+title = Wing Office Master
+package.name = office_sync_master
+package.domain = com.wing.enterprise
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
-version = 65.1
+version = 65.2
 requirements = python3,kivy,plyer,android,requests,certifi
 orientation = portrait
 osx.python_version = 3
 osx.kivy_version = 1.9.1
 fullscreen = 0
-android.permissions = INTERNET, VIBRATE, WAKE_LOCK, RECEIVE_BOOT_COMPLETED, POST_NOTIFICATIONS, FOREGROUND_SERVICE, CAMERA, RECORD_AUDIO
+android.permissions = INTERNET, VIBRATE, WAKE_LOCK, POST_NOTIFICATIONS, FOREGROUND_SERVICE, FOREGROUND_SERVICE_REMOTE_MESSAGING, CAMERA
 android.api = 34
 android.minapi = 21
 android.sdk = 34
