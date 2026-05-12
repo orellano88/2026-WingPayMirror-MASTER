@@ -1,10 +1,10 @@
 [app]
-title = 2026 WingPay OMEGA v8.0 STARK
-package.name = wingpay_stark_sync
-package.domain = com.inversioneswing.stark
+title = WingPay Enterprise 2026
+package.name = wingpay_sync_master
+package.domain = com.inversioneswing.enterprise
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
-version = 65.0
+version = 65.1
 requirements = python3,kivy,plyer,android,requests,certifi
 orientation = portrait
 osx.python_version = 3
