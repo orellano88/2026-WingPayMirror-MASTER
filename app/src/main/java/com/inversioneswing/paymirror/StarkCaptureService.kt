@@ -103,34 +103,30 @@ class StarkCaptureService : NotificationListenerService(), TextToSpeech.OnInitLi
     }
 
     private fun dispararAlarmaLocal(text: String) {
-        // --- PROTOCOLO v64.4: DEFENSA ACÚSTICA ---
+        // --- PROTOCOLO v64.5: SINCRONIZACIÓN ACÚSTICA TOTAL (10 SEGUNDOS) ---
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Patrón de vibración agresivo: 0ms espera, 1s vibra, 0.5s espera...
-            vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 1000, 500, 1000, 500, 1000, 500, 1000), -1))
+            // Patrón de 10 segundos: 1s vibración, 0.2s espera (repite)
+            val pattern = longArrayOf(0, 1000, 200, 1000, 200, 1000, 200, 1000, 200, 1000, 200, 1000, 200, 1000, 200, 1000)
+            vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
         } else {
-            vibrator.vibrate(5000)
+            vibrator.vibrate(10000)
         }
         
         try {
-            // Activar Sirena de Sistema a máximo volumen
             val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             val r = RingtoneManager.getRingtone(applicationContext, notification)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                r.isLooping = false
-            }
             r.play()
             
-            // Detener sirena tras 6 segundos para no bloquear el equipo infinitamente
+            // SINCRONIZADO: Detener tras 10 segundos exactos (igual que la PC)
             Handler(Looper.getMainLooper()).postDelayed({ 
                 if (r.isPlaying) r.stop() 
-            }, 6000)
-        } catch (e: Exception) {
-            Log.e("STARK_SOS", "Fallo al disparar sirena: ${e.message}")
-        }
+            }, 10000)
+        } catch (e: Exception) {}
         
-        // Voz de JARVIS a máximo volumen
         awakeAndSpeak(text)
+        // Repetir voz a los 5 segundos para mantener la intensidad
+        Handler(Looper.getMainLooper()).postDelayed({ awakeAndSpeak(text) }, 5000)
     }
 
     fun awakeAndSpeak(text: String) {
