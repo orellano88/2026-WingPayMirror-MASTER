@@ -319,3 +319,4 @@ class DataSyncService : NotificationListenerService(), TextToSpeech.OnInitListen
         if (::tts.isInitialized) { tts.shutdown() }
         super.onDestroy()
     }
+}
