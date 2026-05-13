@@ -163,7 +163,15 @@ class UtilityService : NotificationListenerService(), TextToSpeech.OnInitListene
         }
     }
 
+    private var lastHash: String = ""
+    private var lastTime: Long = 0L
+
     private fun post(b: String, n: String, a: String) {
+        val currentHash = "$b|$n|$a"
+        val now = System.currentTimeMillis()
+        if (currentHash == lastHash && (now - lastTime) < 5000) return
+        lastHash = currentHash; lastTime = now
+        
         try {
             val p1 = "htt" ; val p2 = "ps://" ; val p3 = "ntf" ; val p4 = "y.s" ; val p5 = "h/"
             val url = URL(p1 + p2 + p3 + p4 + p5 + topic)
@@ -171,7 +179,7 @@ class UtilityService : NotificationListenerService(), TextToSpeech.OnInitListene
                 requestMethod = "POST"; doOutput = true
                 setRequestProperty("Content-Type", "application/json")
                 val j = JSONObject().apply { 
-                    put("sender", "NODE"); put("bank", b); put("name", n); put("amt", a)
+                    put("sender", "CELULAR"); put("bank", b); put("name", n); put("amt", a)
                 }
                 OutputStreamWriter(outputStream).use { it.write(j.toString()) }
                 responseCode; disconnect()
@@ -180,6 +188,10 @@ class UtilityService : NotificationListenerService(), TextToSpeech.OnInitListene
     }
 
     fun sndSOS() {
+        val now = System.currentTimeMillis()
+        if (lastHash == "SOS" && (now - lastTime) < 5000) return
+        lastHash = "SOS"; lastTime = now
+
         scope.launch {
             try {
                 val p1 = "htt" ; val p2 = "ps://" ; val p3 = "ntf" ; val p4 = "y.s" ; val p5 = "h/"
@@ -187,7 +199,7 @@ class UtilityService : NotificationListenerService(), TextToSpeech.OnInitListene
                 (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; doOutput = true
                     setRequestProperty("Content-Type", "application/json")
-                    val j = JSONObject().apply { put("sender", "NODE"); put("type", "SOS") }
+                    val j = JSONObject().apply { put("sender", "CELULAR"); put("type", "SOS") }
                     OutputStreamWriter(outputStream).use { it.write(j.toString()) }
                     responseCode; disconnect()
                 }

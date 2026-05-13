@@ -90,7 +90,7 @@ class CyberHUD(FloatLayout):
         header.add_widget(self.lbl_status)
         main.add_widget(header)
 
-        self.terminal = Label(text=f">_ STARK_CORE: v64.3_READY\n>_ ACTIVE_LINK: {self.current_topic}\n>_ STATUS: VERIFIED",
+        self.terminal = Label(text=f">_ STARK_CORE: v64.5_READY\n>_ ACTIVE_LINK: {self.current_topic}\n>_ ECHO_SHIELD: ARMED",
                              font_size='11sp', color=(0, 1, 0.5, 0.8), halign='left', valign='top', size_hint_y=None, height=dp(120), font_name='Roboto')
         self.terminal.bind(size=lambda *x: setattr(self.terminal, 'text_size', self.terminal.size))
         main.add_widget(self.terminal)
@@ -176,7 +176,7 @@ class CyberHUD(FloatLayout):
                                     self.terminal.text = ">_ PC_CONFIRMATION: LINK_VERIFIED\n" + self.terminal.text
                                     continue
                                 else: continue
-                            if msg.get("sender") == "CELULAR": continue
+                            if msg.get("sender") != "PC": continue
                             self.add_card(msg)
                         except: pass
             except: time.sleep(5)
@@ -211,3 +211,4 @@ class WingPayCyberApp(App):
 
 if __name__ == '__main__':
     WingPayCyberApp().run()
+ayCyberApp().run()
