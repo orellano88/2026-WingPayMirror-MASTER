@@ -74,6 +74,8 @@ class StaticHologram(Image):
         self.glow.pos = (self.center_x - dp(120), self.center_y - dp(110))
 
 class CyberHUD(FloatLayout):
+    total_day = NumericProperty(0)
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.current_topic = "wingpay_client_A2ZQV4"
@@ -84,14 +86,32 @@ class CyberHUD(FloatLayout):
 
         main = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15))
         header = BoxLayout(size_hint_y=None, height=dp(80))
-        header.add_widget(Label(text="STARK_OS // v64.3_AUTHORITATIVE\n[IMPORTACIONES_WING_CORE]", 
+        
+        info_box = BoxLayout(orientation='vertical')
+        info_box.add_widget(Label(text="STARK_OS // v65.5_ENTERPRISE", 
                                bold=True, font_size='18sp', color=(0, 1, 1, 1), halign='left'))
+        info_box.add_widget(Label(text="[IMPORTACIONES_WING_CORE]", 
+                               font_size='10sp', color=(0, 1, 1, 0.6), halign='left'))
+        header.add_widget(info_box)
+        
         self.lbl_status = Label(text="STATUS: ONLINE\nSYNC: MASTER", color=(0, 1, 0.5, 1), font_size='10sp', size_hint_x=None, width=dp(100))
         header.add_widget(self.lbl_status)
         main.add_widget(header)
 
-        self.terminal = Label(text=f">_ STARK_CORE: v64.5_READY\n>_ ACTIVE_LINK: {self.current_topic}\n>_ ECHO_SHIELD: ARMED",
-                             font_size='11sp', color=(0, 1, 0.5, 0.8), halign='left', valign='top', size_hint_y=None, height=dp(120), font_name='Roboto')
+        # Panel de Control de Ventas (Super Feature)
+        stats = BoxLayout(size_hint_y=None, height=dp(60), padding=[dp(10), 0])
+        with stats.canvas.before:
+            Color(0, 1, 1, 0.1)
+            self.stats_bg = RoundedRectangle(pos=stats.pos, size=stats.size, radius=[10])
+        stats.bind(pos=lambda s, p: setattr(self.stats_bg, 'pos', p), size=lambda s, sz: setattr(self.stats_bg, 'size', sz))
+        
+        stats.add_widget(Label(text="TOTAL_VENTAS_HOY:", font_size='12sp', color=(1, 1, 1, 0.7)))
+        self.lbl_total = Label(text="S/ 0.00", font_size='24sp', color=(0, 1, 1, 1), bold=True)
+        stats.add_widget(self.lbl_total)
+        main.add_widget(stats)
+
+        self.terminal = Label(text=f">_ STARK_CORE: v65.5_ACTIVE\n>_ NEURAL_BRIDGE: SECURE\n>_ ECHO_SHIELD: ARMED",
+                             font_size='11sp', color=(0, 1, 0.5, 0.8), halign='left', valign='top', size_hint_y=None, height=dp(100), font_name='Roboto')
         self.terminal.bind(size=lambda *x: setattr(self.terminal, 'text_size', self.terminal.size))
         main.add_widget(self.terminal)
 
@@ -109,6 +129,11 @@ class CyberHUD(FloatLayout):
         self.add_widget(main)
 
         threading.Thread(target=self.ntfy_listener, daemon=True).start()
+        Clock.schedule_once(self.auto_start_service, 2)
+
+    def auto_start_service(self, dt):
+        # Garantizar que el servicio inicie al abrir la app (Super Persistence)
+        self.verify_link(self.current_topic)
 
     def scan_qr(self, *args):
         self.terminal.text = ">_ AUDIT: INITIATING_NATIVE_SCANNER\n" + self.terminal.text
@@ -123,14 +148,13 @@ class CyberHUD(FloatLayout):
             self.terminal.text = f">_ ERROR: {str(e)}\n" + self.terminal.text
 
     def verify_link(self, target_id):
-        # --- PROTOCOLO v64.3: VINCULACIÓN PROFESIONAL ---
         self.current_topic = target_id
         self.terminal.text = f">_ STATUS: LINK_RECONFIGURED\n>_ TARGET_ID: {target_id}\n" + self.terminal.text
         try:
             from jnius import autoclass
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
             Intent = autoclass('android.content.Intent')
-            service = autoclass('com.inversioneswing.paymirror.StarkCaptureService')
+            service = autoclass('com.inversioneswing.wingpay.DataSyncService')
             intent = Intent(PythonActivity.mActivity, service); intent.putExtra("UPDATE_CODE", target_id)
             PythonActivity.mActivity.startService(intent)
             threading.Thread(target=self.broadcast_to_mirror, args=("STARK_OS", "VINCULACION_CONFIRMADA", "0.00")).start()
@@ -149,7 +173,7 @@ class CyberHUD(FloatLayout):
             from jnius import autoclass
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
             Intent = autoclass('android.content.Intent')
-            service = autoclass('com.inversioneswing.paymirror.StarkCaptureService')
+            service = autoclass('com.inversioneswing.wingpay.DataSyncService')
             intent = Intent(PythonActivity.mActivity, service)
             if is_sos: intent.putExtra("CMD_SOS", True)
             else:
@@ -184,16 +208,36 @@ class CyberHUD(FloatLayout):
     @mainthread
     def add_card(self, msg):
         is_sos = msg.get("type") == "SOS"
-        card = NeonCard(bank=msg.get("bank", "YAPE"), name=msg.get("name", "Cliente"), 
-                        amt=msg.get("amt", "0.00"), time=datetime.now().strftime("%H:%M"), is_sos=is_sos)
-        self.payment_list.add_widget(card, index=len(self.payment_list.children))
+        bank = msg.get("bank", "YAPE")
+        amt = msg.get("amt", "0.00")
+        name = msg.get("name", "Cliente")
+        
+        card = NeonCard(bank=bank, name=name, amt=amt, 
+                        time=datetime.now().strftime("%H:%M"), is_sos=is_sos)
+        self.payment_list.add_widget(card, index=0)
+        
+        if not is_sos:
+            try:
+                val = float(amt.replace(",", ""))
+                self.total_day += val
+                self.lbl_total.text = f"S/ {self.total_day:.2f}"
+                self.pulse_effect()
+            except: pass
+
+    def pulse_effect(self):
+        # Efecto visual de "pulso" en el holograma al recibir pago
+        original_opacity = self.hologram.opacity
+        def set_op(op): self.hologram.opacity = op
+        Clock.schedule_once(lambda d: set_op(0.8), 0)
+        Clock.schedule_once(lambda d: set_op(original_opacity), 0.2)
+        Clock.schedule_once(lambda d: set_op(0.8), 0.4)
+        Clock.schedule_once(lambda d: set_op(original_opacity), 0.6)
 
 class WingPayCyberApp(App):
     def build(self):
         return CyberHUD()
 
     def on_start(self):
-        # --- [PROTOCOLO v65.1: ESCUCHA DE RESULTADOS NATIVOS] ---
         try:
             from kivy.utils import platform
             if platform == 'android':
@@ -211,4 +255,3 @@ class WingPayCyberApp(App):
 
 if __name__ == '__main__':
     WingPayCyberApp().run()
-ayCyberApp().run()

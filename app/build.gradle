@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.office.utility.sync'
+    namespace 'com.inversioneswing.wingpay'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.office.utility.sync"
+        applicationId "com.inversioneswing.wingpay"
         minSdk 26
         targetSdk 34
         versionCode 801
