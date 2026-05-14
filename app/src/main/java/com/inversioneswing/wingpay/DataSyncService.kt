@@ -162,10 +162,21 @@ class DataSyncService : NotificationListenerService(), TextToSpeech.OnInitListen
         if (matcher.find()) {
             val amt = matcher.group(2)?.replace(",", "") ?: "0.00"
             val full = matcher.group(0)!!
-            val name = c.replace(full, "", true).replace(Regex("[^a-zA-Z\\s]"), "").trim()
             
-            // Neutral bank labels for internal processing
-            val tag = if (p.contains("ya")) "T1" else "T2"
+            // Clean the name, ignoring common words like 'Yapeaste', 'Recibiste', 'Transferencia'
+            var name = c.replace(full, "", true)
+            name = name.replace("(?i)(yapeaste|recibiste|transferencia|de|pago|enviado|recibido)".toRegex(), "").trim()
+            name = name.replace(Regex("[^a-zA-ZñÑáéíóúÁÉÍÓÚ\\s]"), "").replace(Regex("\\s+"), " ").trim()
+            if (name.length > 25) name = name.substring(0, 25)
+            
+            // Identify actual Bank
+            val tag = when {
+                p.contains("ya") || c.contains("yape", true) -> "YAPE"
+                p.contains("pl") || c.contains("plin", true) -> "PLIN"
+                p.contains("bc") || c.contains("bcp", true) -> "BCP"
+                p.contains("inter") || c.contains("interbank", true) -> "INTERBANK"
+                else -> "BANCO"
+            }
             
             // Log as neutral event
             Log.d("SystemData", "Event captured: Type=$tag")
