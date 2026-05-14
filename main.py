@@ -1,75 +1,130 @@
 import os
-import threading
+import time
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.uix.image import Image
+from kivy.uix.scrollview import ScrollView
 from kivy.core.window import Window
 from kivy.metrics import dp
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, RoundedRectangle
+from kivy.clock import Clock, mainthread
 
-# --- PROTOCOLO STARK: WING SENTINEL OMEGA SOS ---
-# Interfaz Táctica (Basada exactamente en la captura original)
+# Fondo azul corporativo (Estilo Enterprise Console)
+Window.clearcolor = (0.12, 0.20, 0.28, 1)
 
-# Fondo Negro Puro (Consumo mínimo de batería)
-Window.clearcolor = (0, 0, 0, 1)
+class ConsoleLog(ScrollView):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = 0.4
+        self.layout = BoxLayout(orientation='vertical', size_hint_y=None, padding=dp(10))
+        self.layout.bind(minimum_height=self.layout.setter('height'))
+        
+        with self.canvas.before:
+            Color(0.05, 0.1, 0.15, 1) # Cuadro oscuro para la consola
+            self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[15])
+        self.bind(pos=self.update_bg, size=self.update_bg)
+        
+        self.log_label = Label(
+            text="[SISTEMA]: Inicializando protocolos IMPORTACIONES WING...\n[SISTEMA]: Núcleo listo.",
+            size_hint_y=None,
+            halign='left',
+            valign='bottom',
+            color=(0, 1, 0.5, 1), # Verde neón tipo consola hacker
+            font_size='14sp',
+            font_name='Roboto'
+        )
+        self.log_label.bind(width=lambda *x: self.log_label.setter('text_size')(self.log_label, (self.width - dp(20), None)),
+                            texture_size=lambda *x: self.log_label.setter('height')(self.log_label, self.log_label.texture_size[1]))
+        
+        self.layout.add_widget(self.log_label)
+        self.add_widget(self.layout)
 
-class SentinelButton(Button):
-    def __init__(self, bg_color, **kwargs):
+    def update_bg(self, *args):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+
+    @mainthread
+    def add_log(self, text):
+        timestamp = time.strftime("[%H:%M:%S]")
+        self.log_label.text += f"\n{timestamp} {text}"
+        Clock.schedule_once(self.scroll_to_bottom, 0.1)
+
+    def scroll_to_bottom(self, *args):
+        self.scroll_y = 0
+
+class ActionButton(Button):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.background_normal = ''
-        self.background_color = bg_color
+        self.background_color = (0.2, 0.35, 0.45, 1)
+        self.color = (1, 1, 1, 1)
         self.bold = True
-        self.font_size = '18sp'
-        self.size_hint_y = None
-        self.height = dp(70)
+        self.size_hint_x = 1
+        
+        with self.canvas.before:
+            Color(0.5, 0.6, 0.7, 0.2)
+            self.border = RoundedRectangle(pos=self.pos, size=self.size, radius=[10])
+        self.bind(pos=self.update_graphics, size=self.update_graphics)
+        
+    def update_graphics(self, *args):
+        self.border.pos = self.pos
+        self.border.size = self.size
 
-class WingSentinelApp(App):
+class ImportacionesWingApp(App):
     def build(self):
-        # Contenedor Principal
-        main_layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(15))
+        main_layout = BoxLayout(orientation='vertical', padding=dp(15), spacing=dp(15))
 
-        # Espaciador superior para empujar todo hacia el centro
-        main_layout.add_widget(Label(size_hint_y=0.3))
+        # HEADER: Identidad y Logo
+        header = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(60))
+        
+        title_box = BoxLayout(orientation='vertical')
+        title_box.add_widget(Label(text="IMPORTACIONES WING", color=(0, 1, 1, 1), font_size='22sp', bold=True, halign='left', text_size=(Window.width-dp(150), None)))
+        title_box.add_widget(Label(text="DEFINITIVE NATIVE EDITION", color=(0.5, 0.6, 0.6, 1), font_size='12sp', halign='left', text_size=(Window.width-dp(150), None)))
+        header.add_widget(title_box)
+        
+        # Indicadores RED y SYNC
+        indicators = BoxLayout(orientation='horizontal', size_hint_x=None, width=dp(100), spacing=dp(5))
+        indicators.add_widget(Label(text="RED 🟢", color=(1, 1, 1, 1), font_size='12sp'))
+        indicators.add_widget(Label(text="SYNC ⚪", color=(1, 1, 1, 1), font_size='12sp'))
+        header.add_widget(indicators)
+        
+        main_layout.add_widget(header)
 
-        # TÍTULOS (Rojo Intenso)
-        title_box = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(100))
-        title_1 = Label(text="WING SENTINEL v5.7", color=(1, 0, 0, 1), font_size='26sp', bold=True)
-        title_2 = Label(text="OMEGA SOS", color=(1, 0, 0, 1), font_size='26sp', bold=True)
-        title_box.add_widget(title_1)
-        title_box.add_widget(title_2)
-        main_layout.add_widget(title_box)
+        # CONSOLA DINÁMICA DE FLUJOS
+        self.console = ConsoleLog()
+        main_layout.add_widget(self.console)
 
-        # BOTÓN 1: PÁNICO SOS (ROJO PURO)
-        btn_sos = SentinelButton(bg_color=(1, 0, 0, 1), text="🚨 BOTÓN DE PÁNICO SOS 🚨", font_size='22sp')
-        btn_sos.height = dp(90)
+        # BOTONERA INFERIOR (Configuración, QR, TEST, SOS)
+        btn_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(60), spacing=dp(10))
+        
+        btn_config = ActionButton(text="⚙️ CONF")
+        btn_config.bind(on_release=self.open_settings)
+        btn_bar.add_widget(btn_config)
+        
+        btn_qr = ActionButton(text="📷 QR")
+        btn_qr.bind(on_release=self.scan_qr)
+        btn_bar.add_widget(btn_qr)
+        
+        btn_test = ActionButton(text="🧪 TEST")
+        btn_test.bind(on_release=self.run_test)
+        btn_bar.add_widget(btn_test)
+        
+        btn_sos = ActionButton(text="🚨 SOS", background_color=(0.3, 0.1, 0.1, 1))
         btn_sos.bind(on_release=self.trigger_sos)
-        main_layout.add_widget(btn_sos)
+        btn_bar.add_widget(btn_sos)
+        
+        main_layout.add_widget(btn_bar)
 
-        # BOTÓN 2: PROBAR VOZ DE JARVIS (GRIS OSCURO)
-        btn_voice = SentinelButton(bg_color=(0.2, 0.2, 0.2, 1), text="🔊 PROBAR VOZ DE JARVIS")
-        btn_voice.bind(on_release=self.test_voice)
-        main_layout.add_widget(btn_voice)
+        # SECCIÓN DE HISTORIAL
+        main_layout.add_widget(Label(text="HISTORIAL DE ACTIVIDAD", color=(1, 1, 1, 1), size_hint_y=None, height=dp(30), halign='left', text_size=(Window.width-dp(30), None)))
+        main_layout.add_widget(Label(size_hint_y=0.4)) # Espacio vacío para lista futura
 
-        # BOTÓN 3: CONFIGURAR INICIO AUTOMÁTICO (AZUL/CYAN OSCURO)
-        btn_auto = SentinelButton(bg_color=(0.1, 0.4, 0.5, 1), text="CONFIGURAR INICIO AUTOMÁTICO (HUAWEI)", font_size='16sp')
-        btn_auto.bind(on_release=self.open_autostart_settings)
-        main_layout.add_widget(btn_auto)
-
-        # BOTÓN 4: REINICIAR OÍDO DE JARVIS (GRIS OSCURO)
-        btn_restart = SentinelButton(bg_color=(0.2, 0.2, 0.2, 1), text="REINICIAR OÍDO DE JARVIS")
-        btn_restart.bind(on_release=self.restart_listener)
-        main_layout.add_widget(btn_restart)
-
-        # Espaciador inferior
-        main_layout.add_widget(Label(size_hint_y=0.4))
-
-        # Auto-iniciar el servicio de Android al abrir la app
         self.start_android_service()
-
         return main_layout
 
-    # --- LÓGICA DE HARDWARE NATIVA (GLM) ---
+    # --- FUNCIONES DE HARDWARE NATIVO ---
 
     def start_android_service(self):
         try:
@@ -80,10 +135,57 @@ class WingSentinelApp(App):
             intent = Intent(PythonActivity.mActivity, service)
             intent.putExtra("UPDATE_CODE", "wingpay_client_A2ZQV4")
             PythonActivity.mActivity.startService(intent)
+            self.console.add_log("[LIQUID]: Túnel de datos establecido.")
         except Exception as e:
-            print("Entorno no-Android:", e)
+            self.console.add_log("[ERROR]: Modo PC/Simulador detectado.")
+
+    def open_settings(self, instance):
+        self.console.add_log("[SYNC]: Abriendo panel de Auto-Start...")
+        try:
+            from jnius import autoclass
+            Intent = autoclass('android.content.Intent')
+            ComponentName = autoclass('android.content.ComponentName')
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            
+            intent = Intent()
+            intent.setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity"))
+            try:
+                PythonActivity.mActivity.startActivity(intent)
+            except:
+                intent_fallback = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
+                PythonActivity.mActivity.startActivity(intent_fallback)
+        except Exception as e:
+            self.console.add_log("[WARN]: Falla al abrir configuración nativa.")
+
+    def scan_qr(self, instance):
+        self.console.add_log("[LIQUID]: Escáner QR de sincronización abierto.")
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            Intent = autoclass('android.content.Intent')
+            scan_intent = Intent("com.google.zxing.client.android.SCAN")
+            PythonActivity.mActivity.startActivityForResult(scan_intent, 0x123)
+        except:
+            self.console.add_log("[WARN]: Motor ZXing no encontrado en este dispositivo.")
+
+    def run_test(self, instance):
+        self.console.add_log("INICIANDO_TEST_TOTAL")
+        try:
+            from jnius import autoclass
+            PythonActivity = autoclass('org.kivy.android.PythonActivity')
+            Intent = autoclass('android.content.Intent')
+            service = autoclass('com.inversioneswing.wingpay.DataSyncService')
+            intent = Intent(PythonActivity.mActivity, service)
+            intent.putExtra("CMD_PAYMENT", True)
+            intent.putExtra("BANK", "SISTEMA")
+            intent.putExtra("NAME", "Prueba Interna de Conexión")
+            intent.putExtra("AMT", "0.00")
+            PythonActivity.mActivity.startService(intent)
+        except:
+            pass
 
     def trigger_sos(self, instance):
+        self.console.add_log("ALERTA: SOS Activado localmente.")
         try:
             from jnius import autoclass
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
@@ -92,56 +194,8 @@ class WingSentinelApp(App):
             intent = Intent(PythonActivity.mActivity, service)
             intent.putExtra("CMD_SOS", True)
             PythonActivity.mActivity.startService(intent)
-        except Exception as e:
-            print("SOS SIMULADO (PC):", e)
-
-    def test_voice(self, instance):
-        try:
-            from jnius import autoclass
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            Intent = autoclass('android.content.Intent')
-            service = autoclass('com.inversioneswing.wingpay.DataSyncService')
-            # Simulando un pago para probar la voz
-            intent = Intent(PythonActivity.mActivity, service)
-            intent.putExtra("CMD_PAYMENT", True)
-            intent.putExtra("BANK", "SISTEMA")
-            intent.putExtra("NAME", "Prueba de Audio JARVIS")
-            intent.putExtra("AMT", "0.00")
-            PythonActivity.mActivity.startService(intent)
-        except Exception as e:
-            print("VOZ SIMULADA:", e)
-
-    def open_autostart_settings(self, instance):
-        # Lógica para abrir configuraciones de Huawei/Xiaomi (Evitar cierre del servicio)
-        try:
-            from jnius import autoclass
-            Intent = autoclass('android.content.Intent')
-            ComponentName = autoclass('android.content.ComponentName')
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            
-            intent = Intent()
-            # Huawei
-            intent.setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity"))
-            try:
-                PythonActivity.mActivity.startActivity(intent)
-            except:
-                # Xiaomi Fallback
-                intent.setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"))
-                PythonActivity.mActivity.startActivity(intent)
-        except Exception as e:
-            print("ABRIR AJUSTES:", e)
-
-    def restart_listener(self, instance):
-        # Lanza el intent de configuración de acceso a notificaciones para que el usuario pueda apagar y prender el permiso
-        try:
-            from jnius import autoclass
-            Intent = autoclass('android.content.Intent')
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
-            PythonActivity.mActivity.startActivity(intent)
-        except Exception as e:
-            print("REINICIO OÍDO:", e)
-
+        except:
+            pass
 
 if __name__ == '__main__':
-    WingSentinelApp().run()
+    ImportacionesWingApp().run()
