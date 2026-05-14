@@ -6,7 +6,7 @@ GRADLE_DIR="$HOME/gradle-$GRADLE_VERSION"
 
 if [ ! -d "$GRADLE_DIR" ]; then
     echo "JARVIS: Motor Gradle no detectado en el servidor. Iniciando Protocolo de Inyección..."
-    wget -q https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip -O gradle.zip
+    curl -sL https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip -o gradle.zip
     unzip -q gradle.zip -d $HOME
     rm gradle.zip
 fi
