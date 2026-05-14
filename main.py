@@ -1,5 +1,6 @@
 import os
 import time
+import math
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
@@ -8,11 +9,36 @@ from kivy.uix.image import Image
 from kivy.uix.scrollview import ScrollView
 from kivy.core.window import Window
 from kivy.metrics import dp
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import Color, RoundedRectangle, Line
 from kivy.clock import Clock, mainthread
 
-# Fondo azul corporativo (Estilo Enterprise Console)
-Window.clearcolor = (0.12, 0.20, 0.28, 1)
+# Fondo azul petróleo original
+Window.clearcolor = (0.2, 0.35, 0.45, 1)
+
+class FrequencyGraph(BoxLayout):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = None
+        self.height = dp(40)
+        with self.canvas.before:
+            Color(0, 1, 0, 0.5)
+            self.line = Line(points=[], width=1.5)
+        self.bind(pos=self.update_graphics, size=self.update_graphics)
+
+    def update_graphics(self, *args):
+        points = []
+        num_points = 30
+        step = self.width / max(1, num_points)
+        t = time.time() * 2
+        for i in range(num_points + 1):
+            x = self.x + (i * step)
+            # Simulación de onda de frecuencia
+            y = self.y + (self.height / 2) + math.sin(i + t) * (self.height / 3) + math.cos(i*2.5 + t) * (self.height / 6)
+            points.extend([x, y])
+        self.line.points = points
+        
+    def update(self, dt):
+        self.update_graphics()
 
 class ConsoleLog(ScrollView):
     def __init__(self, **kwargs):
@@ -25,12 +51,17 @@ class ConsoleLog(ScrollView):
             Color(0.05, 0.1, 0.15, 1) # Cuadro oscuro para la consola
             self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[15])
         self.bind(pos=self.update_bg, size=self.update_bg)
+
+        # Gráfico de frecuencias animado
+        self.graph = FrequencyGraph()
+        self.layout.add_widget(self.graph)
+        Clock.schedule_interval(self.graph.update, 0.05)
         
         initial_text = (
-            "[SISTEMA]: Inicializando protocolos IMPORTACIONES WING...\n"
-            "[SISTEMA]: Núcleo listo.\n"
-            "[SISTEMA]: Motor Gráfico v57 Online\n"
-            "[SISTEMA]: Tópico: wingpay_client_A2ZQV4"
+            "[LIQUID]: Inicializando protocolos IMPORTACIONES WING...\n"
+            "[LIQUID]: Núcleo listo.\n"
+            "[LIQUID]: Motor Gráfico v57 Online\n"
+            "[LIQUID]: Tópico: wingpay_client_A2ZQV4"
         )
         self.log_label = Label(
             text=initial_text,
@@ -61,7 +92,7 @@ class ConsoleLog(ScrollView):
         self.scroll_y = 0
 
 class ActionButton(Button):
-    def __init__(self, bg_color=(0.2, 0.35, 0.45, 1), text_color=(1, 1, 1, 1), **kwargs):
+    def __init__(self, bg_color=(0.1, 0.25, 0.35, 1), text_color=(1, 1, 1, 1), **kwargs):
         super().__init__(**kwargs)
         self.background_normal = ''
         self.background_color = bg_color
@@ -85,51 +116,49 @@ class ImportacionesWingApp(App):
         # HEADER: Identidad y Logo
         header = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(60))
         
-        title_box = BoxLayout(orientation='vertical')
-        title_box.add_widget(Label(text="IMPORTACIONES WING", color=(0, 1, 1, 1), font_size='22sp', bold=True, halign='left', text_size=(Window.width-dp(150), None)))
-        title_box.add_widget(Label(text="DEFINITIVE NATIVE EDITION", color=(0.5, 0.6, 0.6, 1), font_size='12sp', halign='left', text_size=(Window.width-dp(150), None)))
+        # Logotipo del águila centrado/alineado
+        logo = Image(source='assets/icons/logo.png', size_hint_x=None, width=dp(60))
+        header.add_widget(logo)
+
+        title_box = BoxLayout(orientation='vertical', padding=(dp(10), 0, 0, 0))
+        title_box.add_widget(Label(text="IMPORTACIONES WING", color=(0, 1, 1, 1), font_size='20sp', bold=True, halign='left', text_size=(Window.width-dp(120), None)))
+        title_box.add_widget(Label(text="2026 MASTER UNIVERSAL v65.0", color=(0.5, 0.8, 0.8, 1), font_size='12sp', halign='left', text_size=(Window.width-dp(120), None)))
         header.add_widget(title_box)
-        
-        # Indicadores RED y SYNC
-        indicators = BoxLayout(orientation='horizontal', size_hint_x=None, width=dp(100), spacing=dp(5))
-        indicators.add_widget(Label(text="RED 🟢", color=(1, 1, 1, 1), font_size='12sp'))
-        indicators.add_widget(Label(text="SYNC ⚪", color=(1, 1, 1, 1), font_size='12sp'))
-        header.add_widget(indicators)
         
         main_layout.add_widget(header)
 
-        # CONSOLA DINÁMICA DE FLUJOS
+        # CONSOLA DINÁMICA DE FLUJOS CON GRÁFICO
         self.console = ConsoleLog()
         main_layout.add_widget(self.console)
 
         # FOOTER: Botonera Inferior
         footer = BoxLayout(orientation='horizontal', size_hint_y=0.1, spacing=dp(10))
         
-        # 1. Botón Configuración (Transparente con borde)
+        # 1. Botón Configuración (Transparente con borde, engranaje)
         btn_config = ActionButton(text="⚙️", bg_color=(0, 0, 0, 0))
         btn_config.bind(on_release=self.open_settings)
         footer.add_widget(btn_config)
         
-        # 2. Botón QR
+        # 2. Botón QR (Cámara)
         btn_qr = ActionButton(text="📷 QR")
         btn_qr.bind(on_release=self.scan_qr)
         footer.add_widget(btn_qr)
         
-        # 3. Botón TEST (Llave inglesa, color verde suave)
+        # 3. Botón TEST (Llave inglesa, verde suave)
         btn_test = ActionButton(text="🔧 TEST", text_color=(0.6, 1, 0.6, 1))
         btn_test.bind(on_release=self.run_test)
         footer.add_widget(btn_test)
         
         # 4. Botón SOS (Alerta, rojo vibrante)
-        btn_sos = ActionButton(text="🚨 SOS", text_color=(1, 0.2, 0.2, 1), bg_color=(0.3, 0.1, 0.1, 1))
+        btn_sos = ActionButton(text="🚨 SOS", text_color=(1, 0.2, 0.2, 1), bg_color=(0.8, 0.1, 0.1, 1))
         btn_sos.bind(on_release=self.trigger_sos)
         footer.add_widget(btn_sos)
         
         main_layout.add_widget(footer)
 
-        # VINCULACIÓN MANUAL
+        # VINCULACIÓN MANUAL (Pie de página)
         main_layout.add_widget(Label(text="VINCULACIÓN MANUAL", color=(1, 1, 1, 1), size_hint_y=None, height=dp(30), bold=True))
-        main_layout.add_widget(Label(size_hint_y=0.4)) # Espacio vacío inferior
+        main_layout.add_widget(Label(size_hint_y=0.2)) # Espacio vacío inferior
 
         self.start_android_service()
         return main_layout
@@ -150,7 +179,7 @@ class ImportacionesWingApp(App):
             self.console.add_log("[ERROR]: Modo PC/Simulador detectado.")
 
     def open_settings(self, instance):
-        self.console.add_log("[SYNC]: Abriendo panel de Auto-Start...")
+        self.console.add_log("[LIQUID]: Abriendo panel de Configuración...")
         try:
             from jnius import autoclass
             Intent = autoclass('android.content.Intent')
@@ -179,7 +208,7 @@ class ImportacionesWingApp(App):
             self.console.add_log("[WARN]: Motor ZXing no encontrado en este dispositivo.")
 
     def run_test(self, instance):
-        self.console.add_log("[TEST]: INICIANDO_TEST_TOTAL")
+        self.console.add_log("[LIQUID]: INICIANDO_TEST_TOTAL")
         try:
             from jnius import autoclass
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
@@ -195,7 +224,7 @@ class ImportacionesWingApp(App):
             pass
 
     def trigger_sos(self, instance):
-        self.console.add_log("[SOS]: ALERTA: SOS Activado localmente.")
+        self.console.add_log("[LIQUID]: ALERTA: SOS Activado localmente.")
         try:
             from jnius import autoclass
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
