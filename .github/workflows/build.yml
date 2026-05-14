@@ -20,20 +20,10 @@ jobs:
     - name: Construir con Gradle Oficial
       uses: gradle/gradle-build-action@v3
       with:
-        arguments: assembleRelease --stacktrace
-
-    - name: Firmar APK (Anti-PlayProtect Protocol)
-      uses: r0adkll/sign-android-release@v1
-      id: sign_app
-      with:
-        releaseDirectory: app/build/outputs/apk/release
-        signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-        alias: ${{ secrets.ALIAS }}
-        keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-        keyPassword: ${{ secrets.KEY_PASSWORD }}
+        arguments: assembleDebug --stacktrace
 
     - name: Entregar APK a la Tierra (JARVIS Protocol)
       uses: actions/upload-artifact@v4
       with:
         name: WingPay_Enterprise_v65.5_STARK
-        path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+        path: app/build/outputs/apk/debug/app-debug.apk
