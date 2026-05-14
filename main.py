@@ -26,12 +26,18 @@ class ConsoleLog(ScrollView):
             self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[15])
         self.bind(pos=self.update_bg, size=self.update_bg)
         
+        initial_text = (
+            "[SISTEMA]: Inicializando protocolos IMPORTACIONES WING...\n"
+            "[SISTEMA]: Núcleo listo.\n"
+            "[SISTEMA]: Motor Gráfico v57 Online\n"
+            "[SISTEMA]: Tópico: wingpay_client_A2ZQV4"
+        )
         self.log_label = Label(
-            text="[SISTEMA]: Inicializando protocolos IMPORTACIONES WING...\n[SISTEMA]: Núcleo listo.",
+            text=initial_text,
             size_hint_y=None,
             halign='left',
             valign='bottom',
-            color=(0, 1, 0.5, 1), # Verde neón tipo consola hacker
+            color=(0, 1, 0, 1), # Verde neón puro #00FF00
             font_size='14sp',
             font_name='Roboto'
         )
@@ -55,11 +61,11 @@ class ConsoleLog(ScrollView):
         self.scroll_y = 0
 
 class ActionButton(Button):
-    def __init__(self, **kwargs):
+    def __init__(self, bg_color=(0.2, 0.35, 0.45, 1), text_color=(1, 1, 1, 1), **kwargs):
         super().__init__(**kwargs)
         self.background_normal = ''
-        self.background_color = (0.2, 0.35, 0.45, 1)
-        self.color = (1, 1, 1, 1)
+        self.background_color = bg_color
+        self.color = text_color
         self.bold = True
         self.size_hint_x = 1
         
@@ -96,30 +102,34 @@ class ImportacionesWingApp(App):
         self.console = ConsoleLog()
         main_layout.add_widget(self.console)
 
-        # BOTONERA INFERIOR (Configuración, QR, TEST, SOS)
-        btn_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(60), spacing=dp(10))
+        # FOOTER: Botonera Inferior
+        footer = BoxLayout(orientation='horizontal', size_hint_y=0.1, spacing=dp(10))
         
-        btn_config = ActionButton(text="⚙️ CONF")
+        # 1. Botón Configuración (Transparente con borde)
+        btn_config = ActionButton(text="⚙️", bg_color=(0, 0, 0, 0))
         btn_config.bind(on_release=self.open_settings)
-        btn_bar.add_widget(btn_config)
+        footer.add_widget(btn_config)
         
+        # 2. Botón QR
         btn_qr = ActionButton(text="📷 QR")
         btn_qr.bind(on_release=self.scan_qr)
-        btn_bar.add_widget(btn_qr)
+        footer.add_widget(btn_qr)
         
-        btn_test = ActionButton(text="🧪 TEST")
+        # 3. Botón TEST (Llave inglesa, color verde suave)
+        btn_test = ActionButton(text="🔧 TEST", text_color=(0.6, 1, 0.6, 1))
         btn_test.bind(on_release=self.run_test)
-        btn_bar.add_widget(btn_test)
+        footer.add_widget(btn_test)
         
-        btn_sos = ActionButton(text="🚨 SOS", background_color=(0.3, 0.1, 0.1, 1))
+        # 4. Botón SOS (Alerta, rojo vibrante)
+        btn_sos = ActionButton(text="🚨 SOS", text_color=(1, 0.2, 0.2, 1), bg_color=(0.3, 0.1, 0.1, 1))
         btn_sos.bind(on_release=self.trigger_sos)
-        btn_bar.add_widget(btn_sos)
+        footer.add_widget(btn_sos)
         
-        main_layout.add_widget(btn_bar)
+        main_layout.add_widget(footer)
 
-        # SECCIÓN DE HISTORIAL
-        main_layout.add_widget(Label(text="HISTORIAL DE ACTIVIDAD", color=(1, 1, 1, 1), size_hint_y=None, height=dp(30), halign='left', text_size=(Window.width-dp(30), None)))
-        main_layout.add_widget(Label(size_hint_y=0.4)) # Espacio vacío para lista futura
+        # VINCULACIÓN MANUAL
+        main_layout.add_widget(Label(text="VINCULACIÓN MANUAL", color=(1, 1, 1, 1), size_hint_y=None, height=dp(30), bold=True))
+        main_layout.add_widget(Label(size_hint_y=0.4)) # Espacio vacío inferior
 
         self.start_android_service()
         return main_layout
@@ -169,7 +179,7 @@ class ImportacionesWingApp(App):
             self.console.add_log("[WARN]: Motor ZXing no encontrado en este dispositivo.")
 
     def run_test(self, instance):
-        self.console.add_log("INICIANDO_TEST_TOTAL")
+        self.console.add_log("[TEST]: INICIANDO_TEST_TOTAL")
         try:
             from jnius import autoclass
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
@@ -185,7 +195,7 @@ class ImportacionesWingApp(App):
             pass
 
     def trigger_sos(self, instance):
-        self.console.add_log("ALERTA: SOS Activado localmente.")
+        self.console.add_log("[SOS]: ALERTA: SOS Activado localmente.")
         try:
             from jnius import autoclass
             PythonActivity = autoclass('org.kivy.android.PythonActivity')
