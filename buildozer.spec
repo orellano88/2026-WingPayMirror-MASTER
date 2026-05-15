@@ -10,7 +10,6 @@ orientation = portrait
 osx.python_version = 3
 osx.kivy_version = 1.9.1
 fullscreen = 0
-android.permissions = INTERNET, POST_NOTIFICATIONS, FOREGROUND_SERVICE, FOREGROUND_SERVICE_REMOTE_MESSAGING
 android.api = 34
 android.minapi = 21
 android.sdk = 34
@@ -19,3 +18,10 @@ android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
 
 
+
+# --- CONFIGURACION FINAL WING ---
+android.permissions = INTERNET, RECEIVE_BOOT_COMPLETED, POST_NOTIFICATIONS, VIBRATE, CAMERA
+android.keystore = wingpay.keystore
+android.keystore_password = 123456
+android.keyalias = wing_alias
+android.keyalias_password = 123456

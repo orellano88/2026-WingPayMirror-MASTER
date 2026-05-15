@@ -1,0 +1,35 @@
+name: Build WingPay APK
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblzma-dev libreadline-dev libncursesw5-dev libffi-dev uuid-dev libffi7
+          sudo apt-get install -y python3-pip git zip unzip openjdk-17-jdk
+          pip3 install --user --upgrade buildozer cython virtualenv kivy
+
+      - name: Build with Buildozer
+        run: |
+          yes | buildozer -v android release
+        env:
+          APP_ANDROID_KEYSTORE: wingpay.keystore
+          APP_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          APP_ANDROID_KEYALIAS: wing_alias
+          APP_ANDROID_KEYALIAS_PASSWORD: ${{ secrets.KEYALIAS_PASSWORD }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: WingPay-Ore-Signed
+          path: bin/*.apk
